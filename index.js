@@ -103,10 +103,6 @@ app.post('/audit', async (req, res) => {
 );
     }
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
-app.listen(PORT, () => {
-    console.log(`Forensic Server live on port ${PORT}`);    run = await openai.beta.threads.runs.retrieve(run.id, { thread_id: thread.id });
-}
 
     const messages = await openai.beta.threads.messages.list(thread.id);
     res.json({
@@ -117,7 +113,7 @@ app.listen(PORT, () => {
         console.error("Audit Error:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
-});
+}); // This brace closes the app.post
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
