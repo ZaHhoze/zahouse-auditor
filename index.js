@@ -5,7 +5,7 @@ require('dotenv').config();
 
 const app = express();
 
-// 1. Setup CORS (Updated for Express 5 stability)
+// 1. Setup CORS (Final Stability Version)
 const corsOptions = {
     origin: ['https://zahouse.org', 'https://www.zahouse.org'],
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -14,8 +14,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
-// This is the fix for the PathError - using a regex-friendly path
 app.options(/(.*)/, cors(corsOptions)); 
 
 // 2. Middleware
@@ -26,6 +24,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // 4. The Audit Route
 app.post('/audit', async (req, res) => {
+    console.log("Audit started for message:", req.body.message); // Log start
     try {
         const { message, threadId } = req.body;
         const thread = threadId ? { id: threadId } : await openai.beta.threads.create();
@@ -39,7 +38,6 @@ app.post('/audit', async (req, res) => {
             assistant_id: process.env.ASSISTANT_ID
         });
 
-        // Loop until AI provides the forensic table
         while (['queued', 'in_progress', 'requires_action'].includes(run.status)) {
             if (run.status === 'requires_action') {
                 const toolCalls = run.required_action.submit_tool_outputs.tool_calls;
@@ -49,6 +47,7 @@ app.post('/audit', async (req, res) => {
                     if (toolCall.function.name === "perform_forensic_catalog_search") {
                         const args = JSON.parse(toolCall.function.arguments);
                         const artistName = args.artist_name;
+                        console.log("Searching MusicBrainz for:", artistName);
 
                         try {
                             const artistSearch = await fetch(`https://musicbrainz.org/ws/2/artist/?query=artist:${encodeURIComponent(artistName)}&fmt=json`, {
@@ -70,15 +69,9 @@ app.post('/audit', async (req, res) => {
                                 first_release: rec['first-release-date'] || "Unknown"
                             }));
 
-                            toolOutputs.push({
-                                tool_call_id: toolCall.id,
-                                output: JSON.stringify(realSongs)
-                            });
+                            toolOutputs.push({ tool_call_id: toolCall.id, output: JSON.stringify(realSongs) });
                         } catch (err) {
-                            toolOutputs.push({
-                                tool_call_id: toolCall.id,
-                                output: "No records found in MusicBrainz."
-                            });
+                            toolOutputs.push({ tool_call_id: toolCall.id, output: "No records found." });
                         }
                     }
                 }
@@ -92,14 +85,11 @@ app.post('/audit', async (req, res) => {
         }
 
         const messages = await openai.beta.threads.messages.list(thread.id);
-        res.json({
-            response: messages.data[0].content[0].text.value,
-            threadId: thread.id
-        });
+        res.json({ response: messages.data[0].content[0].text.value, threadId: thread.id });
 
     } catch (error) {
-        console.error("Audit Error:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+        console.error("DETAILED AUDIT ERROR:", error); // This will tell us exactly what broke
+        res.status(500).json({ error: error.message });
     }
 });
 
