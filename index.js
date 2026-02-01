@@ -1,4 +1,4 @@
-const express = require('express'); // ADD THIS LINE BACK AT THE TOP
+const express = require('express'); 
 const OpenAI = require('openai');
 const cors = require('cors');
 require('dotenv').config();
@@ -8,11 +8,17 @@ const app = express();
 
 // 1. Setup CORS (The "Security Guard")
 const corsOptions = {
-  origin: ['https://zahouse.org', 'https://www.zahouse.org,zahouse.org,'],
+  // Use the FRONTEND domains where users click the button
+  origin: [
+    'https://zahouse.org', 
+    'https://www.zahouse.org',
+    'http://zahouse.org',
+    'http://www.zahouse.org'
+  ], 
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
-};
+}
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // Essential for pre-flight browser checks
@@ -98,7 +104,8 @@ app.post('/audit', async (req, res) => {
     }
 
     await new Promise(resolve => setTimeout(resolve, 1000));
-    run = await openai.beta.threads.runs.retrieve(run.id, { thread_id: thread.id });
+app.listen(PORT, () => {
+    console.log(`Forensic Server live on port ${PORT}`);    run = await openai.beta.threads.runs.retrieve(run.id, { thread_id: thread.id });
 }
 
     const messages = await openai.beta.threads.messages.list(thread.id);
