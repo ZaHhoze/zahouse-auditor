@@ -1,9 +1,10 @@
-const express = require('express')
+const express = require('express'); // ADD THIS LINE BACK AT THE TOP
 const OpenAI = require('openai');
 const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
+
 
 // 1. Setup CORS (The "Security Guard")
 const corsOptions = {
@@ -20,8 +21,6 @@ app.options('*', cors(corsOptions)); // Essential for pre-flight browser checks
 app.use(express.json());
 
 // 3. OpenAI Client
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 app.post('/audit', async (req, res) => {
