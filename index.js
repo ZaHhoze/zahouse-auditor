@@ -8,7 +8,7 @@ const app = express();
 
 // 1. Setup CORS (The "Security Guard")
 const corsOptions = {
-  origin: ['https://zahouse.org', 'https://www.zahouse.org'],
+  origin: ['https://zahouse.org', 'https://www.zahouse.org,zahouse.org,'],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
