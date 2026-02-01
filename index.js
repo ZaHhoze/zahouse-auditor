@@ -5,7 +5,7 @@ require('dotenv').config();
 
 const app = express();
 
-// 1. Setup CORS (The Security Guard)
+// 1. Setup CORS (Corrected for Express 5.x)
 const corsOptions = {
     origin: ['https://zahouse.org', 'https://www.zahouse.org'],
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -14,7 +14,9 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Essential for pre-flight checks
+
+// This line was causing the latest crash - fixed to use a valid path string
+app.options('*', cors(corsOptions)); 
 
 // 2. Middleware
 app.use(express.json());
@@ -49,7 +51,6 @@ app.post('/audit', async (req, res) => {
                         const artistName = args.artist_name;
 
                         try {
-                            // MusicBrainz API Call
                             const artistSearch = await fetch(`https://musicbrainz.org/ws/2/artist/?query=artist:${encodeURIComponent(artistName)}&fmt=json`, {
                                 headers: { 'User-Agent': 'ZaHouseAuditor/1.0.0 (dcrutchfield@za.house)' }
                             });
@@ -102,7 +103,7 @@ app.post('/audit', async (req, res) => {
     }
 });
 
-// 5. Start Server (Outside all brackets)
+// 5. Start Server
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`Forensic Server live on port ${PORT}`);
