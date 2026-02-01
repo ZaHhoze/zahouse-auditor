@@ -1,11 +1,26 @@
-const express = require('express');
+codconst express = require('express')
 const OpenAI = require('openai');
 const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-app.use(cors()); // Allows zahouse.org to talk to this server
+
+// 1. Setup CORS (The "Security Guard")
+const corsOptions = {
+  origin: ['https://zahouse.org', 'https://www.zahouse.org'],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Essential for pre-flight browser checks
+
+// 2. Setup JSON Parsing (The "Translator")
 app.use(express.json());
+
+// 3. OpenAI Client
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -76,12 +91,11 @@ app.post('/audit', async (req, res) => {
 
         // Submit the results back to OpenAI to resume the run
         run = await openai.beta.threads.runs.submitToolOutputs(
-            run.id, // Run ID first
-            { 
-                thread_id: thread.id, 
-                tool_outputs: toolOutputs 
-            }
-        );
+    run.id, // Run ID first
+    { 
+        thread_id: thread.id, 
+        tool_outputs: toolOutputs} 
+);
     }
 
     await new Promise(resolve => setTimeout(resolve, 1000));
