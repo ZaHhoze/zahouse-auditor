@@ -110,12 +110,16 @@ app.listen(PORT, () => {
 
     const messages = await openai.beta.threads.messages.list(thread.id);
     res.json({
-        response: messages.data[0].content[0].text.value,
-        threadId: thread.id
-    });
+            response: messages.data[0].content[0].text.value,
+            threadId: thread.id
+        });
+    } catch (error) {
+        console.error("Audit Error:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () =>{
- console.log(`Forensic Server live on port ${PORT}`);
+app.listen(PORT, () => {
+    console.log(`Forensic Server live on port ${PORT}`);
 });
