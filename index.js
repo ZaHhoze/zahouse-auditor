@@ -5,7 +5,7 @@ require('dotenv').config();
 
 const app = express();
 
-// 1. Setup CORS (Corrected for Express 5.x)
+// 1. Setup CORS (Updated for Express 5 stability)
 const corsOptions = {
     origin: ['https://zahouse.org', 'https://www.zahouse.org'],
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -15,8 +15,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// This line was causing the latest crash - fixed to use a valid path string
-app.options('*', cors(corsOptions)); 
+// This is the fix for the PathError - using a regex-friendly path
+app.options(/(.*)/, cors(corsOptions)); 
 
 // 2. Middleware
 app.use(express.json());
