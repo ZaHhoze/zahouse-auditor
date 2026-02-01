@@ -29,7 +29,7 @@ app.post('/audit', async (req, res) => {
     // Wait for the AI to 'spit out' the final table results
     while (['queued', 'in_progress', 'requires_action'].includes(run.status)) {
         await new Promise(resolve => setTimeout(resolve, 1000));
-        run = await openai.beta.threads.runs.retrieve(run.id, {thread_id: thread.id});
+        run = await openai.beta.threads.runs.retrieve(run.id, { thread_id: currentThreadId });
     }
 
     const messages = await openai.beta.threads.messages.list(thread.id);
