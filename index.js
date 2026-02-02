@@ -43,7 +43,8 @@ app.post('/audit', upload.single('file'), async (req, res) => {
             fs.unlinkSync(req.file.path); 
         }
 
-        // 2. Send to Groq (Llama 3)
+        // 2. Send to Groq (Llama 3.3 Versatile)
+        // UPDATED: Replaced decommissioned model with the new standard
         const chatCompletion = await groq.chat.completions.create({
             messages: [
                 {
@@ -55,7 +56,7 @@ app.post('/audit', upload.single('file'), async (req, res) => {
                     content: (message || "Analyze this contract.") + context
                 }
             ],
-            model: "llama3-70b-8192", 
+            model: "llama-3.3-70b-versatile", 
             temperature: 0.6,
         });
 
