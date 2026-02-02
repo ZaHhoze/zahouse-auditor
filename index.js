@@ -37,7 +37,7 @@ app.post('/audit', async (req, res) => {
         while (run.status !== 'completed' && attempts < 40) {
             
             // FIX: Use named thread_id parameter to avoid "/threads/undefined/" error
-            run = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+            run = await openai.beta.threads.runs.retrieve(run.id, { thread_id: thread.id });)
 
             if (run.status === 'requires_action') {
                 const toolCalls = run.required_action.submit_tool_outputs.tool_calls;
