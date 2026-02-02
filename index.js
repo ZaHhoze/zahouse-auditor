@@ -11,25 +11,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- THE FIX: FORCE HOMEPAGE TO BE HTML ---
-// We place this at the VERY TOP so nothing else interferes.
+// --- THE CRITICAL FIX: MANUALLY SERVE THE INDEX ---
+// We put this BEFORE app.use(express.static) to stop the server from guessing the file type incorrectly.
 app.get('/', (req, res) => {
-    try {
-        // 1. Manually read the file text
-        const indexPath = path.join(__dirname, 'public', 'index.html');
-        const htmlContent = fs.readFileSync(indexPath, 'utf8');
-        
-        // 2. Force the header to HTML
-        res.setHeader('Content-Type', 'text/html');
-        
-        // 3. Send the content
-        res.send(htmlContent);
-    } catch (e) {
-        res.send('<h1>Error: public/index.html not found.</h1><p>Did you create the folder?</p>');
-    }
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Serve other static files (css, js) if needed
+// Serve other assets (images, etc)
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Configure Multer
@@ -43,7 +31,6 @@ const model = genAI.getGenerativeModel({
     systemInstruction: `ROLE: ZaHouse Music Law Strategist. TONE: 'Suits meets The Streets'. Professional, swagger, metaphors. PROTOCOL: Analyze uploaded contracts for Term, Royalties, Masters, 360 clauses. Call out red flags.`
 });
 
-// Simple Session Storage
 const chatSessions = {};
 
 app.post('/audit', upload.single('file'), async (req, res) => {
