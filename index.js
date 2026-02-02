@@ -14,12 +14,12 @@ app.use(express.json());
 // ==========================================
 // 🚨 THE NUCLEAR FIX: HARDCODED KEY 🚨
 // ==========================================
-const HARDCODED_KEY = "PASTE_YOUR_KEY_HERE"; 
+const HARDCODED_KEY = "AIzaSyDx5K2kBXNUphvE7aRFeon_JqM5eE32WWk"; 
 
 const genAI = new GoogleGenerativeAI(HARDCODED_KEY);
 const fileManager = new GoogleAIFileManager(HARDCODED_KEY);
 
-// FIXED: Using the most stable model identifier to prevent 404 errors
+// FIXED: Using 'gemini-1.5-flash' for maximum Free Tier stability
 const model = genAI.getGenerativeModel({ 
     model: "gemini-1.5-flash", 
     systemInstruction: "ROLE: ZaHouse Music Law Strategist. TONE: 'Suits meets The Streets'. Professional, swagger, metaphors."
@@ -52,11 +52,11 @@ app.post('/audit', upload.single('file'), async (req, res) => {
                 displayName: req.file.originalname,
             });
 
-            await new Promise(r => setTimeout(r, 1500)); // Buffer for Google processing
+            await new Promise(r => setTimeout(r, 2000)); // 2 sec buffer for free tier file processing
 
             result = await chat.sendMessage([
                 { fileData: { mimeType: uploadResponse.file.mimeType, fileUri: uploadResponse.file.uri } },
-                { text: message || "Analyze this contract." }
+                { text: message || "Analyze this contract for red flags." }
             ]);
             fs.unlinkSync(newPath);
         } else {
@@ -68,11 +68,11 @@ app.post('/audit', upload.single('file'), async (req, res) => {
     } catch (err) {
         console.error("Gemini Error:", err);
         res.status(500).json({ 
-            response: `**SYSTEM ERROR:** ${err.message}. \n\n*Check that your API key inside index.js is enabled in Google AI Studio.*`, 
+            response: `**FREE TIER ERROR:** ${err.message}. \n\n*Ensure your API Key is from Google AI Studio and not Google Cloud Vertex AI.*`, 
             error: err.message 
         });
     }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`ZaHouse Live on Port ${PORT}`));
+app.listen(PORT, () => console.log(`ZaHouse Free Tier Engine Live on Port ${PORT}`));
