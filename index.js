@@ -13,31 +13,29 @@ const openai = new OpenAI({
 });
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
 
-async function performForensicCatalogSearch(artistName) {
-    console.log(`[STABLE SCAN] ${artistName}`);
-    return [
-        { title: "Asset 01", iswc: "T-010.556.789-0", status: "ISWC SECURE" },
-        { title: "Asset 02", iswc: "MISSING", status: "BROKEN HANDSHAKE" }
-    ];
-}
-
 app.post('/audit', async (req, res) => {
     const { message, threadId } = req.body;
 
     try {
-        // 1. Thread Management
-        const thread = threadId ? { id: threadId } : await openai.beta.threads.create();
-        if (!thread.id) throw new Error("Could not initialize thread.");
+        // 1. Thread Validation: Ensure we have a valid ID
+        let thread;
+        if (threadId && threadId !== "null" && threadId !== "undefined") {
+            thread = { id: threadId };
+        } else {
+            thread = await openai.beta.threads.create();
+            console.log(`New Thread Created: ${thread.id}`);
+        }
 
+        // 2. Add Message
         await openai.beta.threads.messages.create(thread.id, { role: "user", content: message });
 
-        // 2. Create the Run
+        // 3. Create Run
         let run = await openai.beta.threads.runs.create(thread.id, { assistant_id: ASSISTANT_ID });
-        if (!run.id) throw new Error("Could not initialize run.");
 
-        // 3. Polling Loop with Safety Check
-        let maxAttempts = 30; 
-        while (run.status !== 'completed' && maxAttempts > 0) {
+        // 4. Polling Loop with the Correct Syntax
+        let attempts = 0;
+        while (run.status !== 'completed' && attempts < 40) {
+            // FIX: This specific syntax prevents the "threads/undefined" crash
             run = await openai.beta.threads.runs.retrieve(thread.id, run.id);
 
             if (run.status === 'requires_action') {
@@ -52,17 +50,19 @@ app.post('/audit', async (req, res) => {
                 run = await openai.beta.threads.runs.submitToolOutputs(thread.id, run.id, { tool_outputs: toolOutputs });
             }
             
-            if (run.status === 'failed') throw new Error(run.last_error?.message || "Run failed");
-            
+            if (['failed', 'cancelled', 'expired'].includes(run.status)) {
+                throw new Error(`Run ended with status: ${run.status}`);
+            }
+
             await new Promise(r => setTimeout(r, 1000));
-            maxAttempts--;
+            attempts++;
         }
 
-        // 4. Final Message Recovery
+        // 5. Message List Recovery
         const messages = await openai.beta.threads.messages.list(thread.id);
-        const lastMessage = messages.data[0]?.content[0]?.text?.value || "Audit complete.";
+        const finalMessage = messages.data[0]?.content[0]?.text?.value || "Audit protocol complete.";
 
-        res.json({ response: lastMessage, threadId: thread.id });
+        res.json({ response: finalMessage, threadId: thread.id });
 
     } catch (err) {
         console.error("Forensic Error:", err.message);
@@ -70,6 +70,6 @@ app.post('/audit', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 8080; // Railway often uses 8080
+const PORT = process.env.PORT || 8080;
 const server = app.listen(PORT, () => console.log(`Stable Auditor live on ${PORT}`));
 server.timeout = 120000;
