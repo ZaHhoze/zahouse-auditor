@@ -11,14 +11,26 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 1. Serve Static Files (CSS, JS, Images)
-app.use(express.static(path.join(__dirname, 'public')));
-
-// 2. FORCE HTML HEADER for the Homepage
+// --- THE FIX: FORCE HOMEPAGE TO BE HTML ---
+// We place this at the VERY TOP so nothing else interferes.
 app.get('/', (req, res) => {
-    res.setHeader('Content-Type', 'text/html'); // <--- THE FIX
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    try {
+        // 1. Manually read the file text
+        const indexPath = path.join(__dirname, 'public', 'index.html');
+        const htmlContent = fs.readFileSync(indexPath, 'utf8');
+        
+        // 2. Force the header to HTML
+        res.setHeader('Content-Type', 'text/html');
+        
+        // 3. Send the content
+        res.send(htmlContent);
+    } catch (e) {
+        res.send('<h1>Error: public/index.html not found.</h1><p>Did you create the folder?</p>');
+    }
 });
+
+// Serve other static files (css, js) if needed
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Configure Multer
 const upload = multer({ dest: 'uploads/' });
@@ -31,6 +43,7 @@ const model = genAI.getGenerativeModel({
     systemInstruction: `ROLE: ZaHouse Music Law Strategist. TONE: 'Suits meets The Streets'. Professional, swagger, metaphors. PROTOCOL: Analyze uploaded contracts for Term, Royalties, Masters, 360 clauses. Call out red flags.`
 });
 
+// Simple Session Storage
 const chatSessions = {};
 
 app.post('/audit', upload.single('file'), async (req, res) => {
