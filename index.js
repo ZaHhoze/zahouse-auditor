@@ -1,109 +1,89 @@
-const express = require('express');
-const OpenAI = require('openai');
-const cors = require('cors');
 require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const OpenAI = require('openai');
 
 const app = express();
-
-// 1. Setup CORS (Updated for Express 5 stability)
-const corsOptions = {
-    origin: ['https://zahouse.org', 'https://www.zahouse.org'],
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
-};
-
-app.use(cors(corsOptions));
-
-// Fix for PathError: Uses regex for the wildcard
-app.options(/(.*)/, cors(corsOptions)); 
-
-// 2. Middleware
+app.use(cors());
 app.use(express.json());
 
-// 3. OpenAI Client
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const ASSISTANT_ID = process.env.ASSISTANT_ID;
 
-// 4. The Audit Route
+// Helper: Mock Forensic Database Search
+async function performForensicSearch(artistName) {
+    console.log(`Searching registries for: ${artistName}...`);
+    // In production, replace this with calls to MusicBrainz or your own DB
+    return [
+        { title: "Song A", isrc: "US-XXX-24-00001", iswc: "T-123.456.789-0", status: "Linked" },
+        { title: "Song B", isrc: "MISSING", iswc: "T-987.654.321-1", status: "Broken Handshake" }
+    ];
+}
+
 app.post('/audit', async (req, res) => {
-    console.log("Audit started for message:", req.body.message);
+    const { message, threadId } = req.body;
+
     try {
-        const { message, threadId } = req.body;
+        // 1. Get or Create a Thread
         const thread = threadId ? { id: threadId } : await openai.beta.threads.create();
 
+        // 2. Add the User Message
         await openai.beta.threads.messages.create(thread.id, {
-            role: 'user',
+            role: "user",
             content: message
         });
 
+        // 3. Start the Run
         let run = await openai.beta.threads.runs.create(thread.id, {
-            assistant_id: process.env.ASSISTANT_ID
+            assistant_id: ASSISTANT_ID
         });
 
-        // Loop until AI provides the forensic table
-        while (['queued', 'in_progress', 'requires_action'].includes(run.status)) {
+        // 4. Polling Loop to handle Tool Calls (Forensic protocol)
+        while (run.status !== 'completed') {
+            run = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+
             if (run.status === 'requires_action') {
                 const toolCalls = run.required_action.submit_tool_outputs.tool_calls;
                 const toolOutputs = [];
 
-                // Gather all search data before submitting to OpenAI
                 for (const toolCall of toolCalls) {
                     if (toolCall.function.name === "perform_forensic_catalog_search") {
                         const args = JSON.parse(toolCall.function.arguments);
-                        console.log("Searching MusicBrainz for:", args.artist_name);
+                        const forensicData = await performForensicSearch(args.artistName);
 
-                        try {
-                            const artistSearch = await fetch(`https://musicbrainz.org/ws/2/artist/?query=artist:${encodeURIComponent(args.artist_name)}&fmt=json`, {
-                                headers: { 'User-Agent': 'ZaHouseAuditor/1.0.0 (dcrutchfield@za.house)' }
-                            });
-                            const artistData = await artistSearch.json();
-                            const mbid = artistData.artists[0]?.id;
-
-                            if (mbid) {
-                                const recordingSearch = await fetch(`https://musicbrainz.org/ws/2/recording?artist=${mbid}&limit=50&fmt=json&inc=isrcs`, {
-                                    headers: { 'User-Agent': 'ZaHouseAuditor/1.0.0' }
-                                });
-                                const recordingData = await recordingSearch.json();
-                                const realSongs = recordingData.recordings.map(rec => ({
-                                    title: rec.title,
-                                    isrc: rec.isrcs?.[0] || "Not Found",
-                                    first_release: rec['first-release-date'] || "Unknown"
-                                }));
-                                toolOutputs.push({ tool_call_id: toolCall.id, output: JSON.stringify(realSongs) });
-                            }
-                        } catch (err) {
-                            console.error("MusicBrainz Error:", err.message);
-                            toolOutputs.push({ tool_call_id: toolCall.id, output: "[]" });
-                        }
+                        toolOutputs.push({
+                            tool_call_id: toolCall.id,
+                            output: JSON.stringify(forensicData)
+                        });
                     }
                 }
 
-                // Submit all gathered outputs at once to satisfy OpenAI 400 error
-                if (toolOutputs.length > 0) {
-                    run = await openai.beta.threads.runs.submitToolOutputs(run.id, {
-                        thread_id: thread.id,
-                        tool_outputs: toolOutputs
-                    });
-                }
+                // Submit findings back to the AI
+                run = await openai.beta.threads.runs.submitToolOutputs(thread.id, run.id, {
+                    tool_outputs: toolOutputs
+                });
+            } else if (run.status === 'failed') {
+                throw new Error("Assistant Run Failed");
             }
+
+            // Wait 1 second before checking status again
             await new Promise(resolve => setTimeout(resolve, 1000));
-            run = await openai.beta.threads.runs.retrieve(run.id, { thread_id: thread.id });
         }
 
+        // 5. Get the Final Response
         const messages = await openai.beta.threads.messages.list(thread.id);
+        const lastMessage = messages.data[0].content[0].text.value;
+
         res.json({
-            response: messages.data[0].content[0].text.value,
+            response: lastMessage,
             threadId: thread.id
         });
 
     } catch (error) {
-        console.error("DETAILED AUDIT ERROR:", error);
-        res.status(500).json({ error: error.message });
+        console.error("Audit Error:", error);
+        res.status(500).json({ error: "Forensic connection failed." });
     }
 });
 
-// 5. Start Server
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-    console.log(`Forensic Server live on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Auditor Server active on port ${PORT}`));
