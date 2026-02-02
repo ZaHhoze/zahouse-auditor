@@ -7,85 +7,84 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialize OpenAI
 const openai = new OpenAI({ 
     apiKey: process.env.OPENAI_API_KEY,
     timeout: 60000 
 });
-const ASSISTANT_ID = process.env.ASSISTANT_ID;
+
+// CRITICAL: Ensure this matches the ID in your .env file
+const ASSISTANT_ID = process.env.ASSISTANT_ID; 
 
 app.post('/audit', async (req, res) => {
-    // We kept 'threadId' variable name to match your website
-    const { message, threadId } = req.body;
+    let { message, threadId } = req.body;
 
     try {
-        // 1. Thread Setup (With Logging)
-        let thread;
+        // --- STEP 1: FORCE THREAD LOCK ---
+        // We create a new variable 'activeThreadId' that CANNOT be undefined.
+        let activeThreadId;
+
         if (threadId && threadId.startsWith('thread_')) {
-            console.log(`Resuming Thread: ${threadId}`);
-            thread = { id: threadId };
+            activeThreadId = threadId;
+            console.log(`>>> RESUMING THREAD: ${activeThreadId}`);
         } else {
-            thread = await openai.beta.threads.create();
-            console.log(`Created New Thread: ${thread.id}`);
+            const newThread = await openai.beta.threads.create();
+            activeThreadId = newThread.id;
+            console.log(`>>> CREATED NEW THREAD: ${activeThreadId}`);
         }
 
-        // 2. Add Message
-        await openai.beta.threads.messages.create(thread.id, { role: "user", content: message });
+        // --- STEP 2: SEND MESSAGE ---
+        // We use 'activeThreadId' strictly from here on.
+        await openai.beta.threads.messages.create(activeThreadId, { 
+            role: "user", 
+            content: message 
+        });
 
-        // 3. Start Legal Review (Run)
-        console.log(`Starting Run for Thread: ${thread.id}`);
-        let run = await openai.beta.threads.runs.create(thread.id, { assistant_id: ASSISTANT_ID });
-
-        // 4. Polling Loop (With Safety Checks)
+        // --- STEP 3: START RUN ---
+        let run = await openai.beta.threads.runs.create(activeThreadId, { 
+            assistant_id: ASSISTANT_ID 
+        });
+        
+        // --- STEP 4: POLLING LOOP (The Crash Zone) ---
         let attempts = 0;
         while (run.status !== 'completed' && attempts < 60) {
             
-            // DEBUG: Log IDs before every check to catch the "undefined" error
-            // console.log(`Checking: Thread ${thread.id} / Run ${run.id}`);
+            // SLEEP
+            await new Promise(r => setTimeout(r, 1000));
 
-            if (!thread.id || !run.id) {
-                throw new Error("Critical: Thread ID or Run ID lost during polling.");
-            }
+            // CRITICAL FIX: We explicitly pass the LOCKED ID.
+            // This prevents the "/threads/undefined/" error.
+            run = await openai.beta.threads.runs.retrieve(activeThreadId, run.id);
 
-            // Retrieve status
-            run = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+            // LOGGING: Watch your Railway logs for this line!
+            console.log(`Checking Run: ${run.id} on Thread: ${activeThreadId} -> Status: ${run.status}`);
 
-            // AUTO-CANCEL: If AI tries to use a tool (which we deleted), kill it safely
             if (run.status === 'requires_action') {
-                console.log("Cancelling ghost tool call...");
-                await openai.beta.threads.runs.cancel(thread.id, run.id);
-                // Force a text response instead
-                await openai.beta.threads.messages.create(thread.id, { 
-                    role: "user", 
-                    content: "System: Do not use tools. Search your Knowledge Base files only." 
-                });
-                run = await openai.beta.threads.runs.create(thread.id, { assistant_id: ASSISTANT_ID });
+                // If it tries to use a tool, we force it back to text-only
+                await openai.beta.threads.runs.cancel(activeThreadId, run.id);
+                throw new Error("Tool use cancelled. Please use Knowledge Base only.");
             }
 
             if (['failed', 'cancelled', 'expired'].includes(run.status)) {
-                console.error("Run Failed Error:", run.last_error);
-                throw new Error(`AI Process Failed: ${run.last_error?.message || run.status}`);
+                throw new Error(`Run failed with status: ${run.status}`);
             }
-
-            await new Promise(r => setTimeout(r, 1000));
             attempts++;
         }
 
-        // 5. Get Answer
-        const messages = await openai.beta.threads.messages.list(thread.id);
-        const advice = messages.data[0]?.content[0]?.text?.value || "I reviewed the files but found no result.";
+        // --- STEP 5: GET RESPONSE ---
+        const messages = await openai.beta.threads.messages.list(activeThreadId);
+        const advice = messages.data[0]?.content[0]?.text?.value || "I checked the files but found no response.";
 
-        res.json({ response: advice, threadId: thread.id });
+        res.json({ response: advice, threadId: activeThreadId });
 
     } catch (err) {
-        console.error("Server Crash Report:", err.message);
+        console.error("SERVER ERROR:", err.message);
         res.status(500).json({ 
-            response: `**Connection Error:** ${err.message}. Please try again.`, 
+            response: `**System Error:** ${err.message}`, 
             error: err.message 
         });
     }
 });
 
 const PORT = process.env.PORT || 8080;
-const server = app.listen(PORT, () => console.log(`ZaHouse Legal Server live on ${PORT}`));
+const server = app.listen(PORT, () => console.log(`Legal Server Active on ${PORT}`));
 server.timeout = 120000;
