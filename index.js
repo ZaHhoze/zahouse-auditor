@@ -12,78 +12,60 @@ const openai = new OpenAI({
     timeout: 60000 
 });
 
-// CRITICAL: This must be your 'asst_' ID from the Assistants tab, NOT the 'pmpt_' ID.
 const ASSISTANT_ID = process.env.ASSISTANT_ID; 
 
 app.post('/audit', async (req, res) => {
     let { message, threadId } = req.body;
 
     try {
-        // --- STEP 1: FORCE THREAD LOCK ---
-        // We create a new variable 'activeThreadId' that CANNOT be undefined.
-        // This fixes the "Value of type Undefined" error you see in the logs.
-        let activeThreadId;
-
-        if (threadId && threadId.startsWith('thread_')) {
-            activeThreadId = threadId;
-            console.log(`>>> RESUMING THREAD: ${activeThreadId}`);
-        } else {
-            const newThread = await openai.beta.threads.create();
-            activeThreadId = newThread.id;
-            console.log(`>>> CREATED NEW THREAD: ${activeThreadId}`);
+        // 1. GET OR CREATE THREAD
+        // We establish the ID once.
+        let myThreadId = threadId;
+        if (!myThreadId || !myThreadId.startsWith('thread_')) {
+            console.log("Creating new thread...");
+            const thread = await openai.beta.threads.create();
+            myThreadId = thread.id;
         }
+        console.log(`Using Thread ID: ${myThreadId}`);
 
-        // --- STEP 2: SEND MESSAGE ---
-        await openai.beta.threads.messages.create(activeThreadId, { 
+        // 2. ADD USER MESSAGE
+        await openai.beta.threads.messages.create(myThreadId, { 
             role: "user", 
             content: message 
         });
 
-        // --- STEP 3: START RUN ---
-        let run = await openai.beta.threads.runs.create(activeThreadId, { 
+        // 3. THE "DIFFERENT" APPROACH (Auto-Poll)
+        // Instead of a manual loop, we let OpenAI handle the waiting.
+        // This prevents the "Undefined Path" error because OpenAI manages the IDs internally.
+        console.log("Starting Auto-Poll...");
+        const run = await openai.beta.threads.runs.createAndPoll(myThreadId, { 
             assistant_id: ASSISTANT_ID 
         });
-        
-        // --- STEP 4: POLLING LOOP ---
-        let attempts = 0;
-        while (run.status !== 'completed' && attempts < 60) {
+
+        // 4. CHECK RESULT
+        if (run.status === 'completed') {
+            const messages = await openai.beta.threads.messages.list(run.thread_id);
+            const responseText = messages.data[0].content[0].text.value;
             
-            // SLEEP
-            await new Promise(r => setTimeout(r, 1000));
-
-            // THE FIX: We use 'activeThreadId' which we locked in Step 1.
-            run = await openai.beta.threads.runs.retrieve(activeThreadId, run.id);
-
-            // LOGGING: Check your Railway logs for this specific line if it fails
-            console.log(`Checking Run: ${run.id} on Thread: ${activeThreadId} -> Status: ${run.status}`);
-
-            if (run.status === 'requires_action') {
-                // If it tries to search the web (which is broken), we force it to stop
-                await openai.beta.threads.runs.cancel(activeThreadId, run.id);
-                throw new Error("I can only check your uploaded Knowledge Base files.");
-            }
-
-            if (['failed', 'cancelled', 'expired'].includes(run.status)) {
-                throw new Error(`Run failed with status: ${run.status}`);
-            }
-            attempts++;
+            res.json({ response: responseText, threadId: myThreadId });
+        } else {
+            // If it failed (e.g., restricted by tool policies), we tell the user.
+            console.log(`Run status: ${run.status}`);
+            res.json({ 
+                response: "I reviewed the files but couldn't generate a complete answer. Please try rephrasing.", 
+                threadId: myThreadId 
+            });
         }
-
-        // --- STEP 5: GET RESPONSE ---
-        const messages = await openai.beta.threads.messages.list(activeThreadId);
-        const advice = messages.data[0]?.content[0]?.text?.value || "I reviewed the files but found no response.";
-
-        res.json({ response: advice, threadId: activeThreadId });
 
     } catch (err) {
         console.error("SERVER ERROR:", err.message);
         res.status(500).json({ 
-            response: `**System Error:** ${err.message}`, 
+            response: `System Error: ${err.message}`, 
             error: err.message 
         });
     }
 });
 
 const PORT = process.env.PORT || 8080;
-const server = app.listen(PORT, () => console.log(`Legal Server Active on ${PORT}`));
+const server = app.listen(PORT, () => console.log(`Legal Server Live on ${PORT}`));
 server.timeout = 120000;
