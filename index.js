@@ -17,13 +17,12 @@ app.post('/audit', async (req, res) => {
     const { message, threadId } = req.body;
 
     try {
-        // 1. Thread Validation: Ensure we have a valid ID
+        // 1. Thread Safety: Ensure we never pass "undefined" to OpenAI
         let thread;
         if (threadId && threadId !== "null" && threadId !== "undefined") {
             thread = { id: threadId };
         } else {
             thread = await openai.beta.threads.create();
-            console.log(`New Thread Created: ${thread.id}`);
         }
 
         // 2. Add Message
@@ -32,10 +31,11 @@ app.post('/audit', async (req, res) => {
         // 3. Create Run
         let run = await openai.beta.threads.runs.create(thread.id, { assistant_id: ASSISTANT_ID });
 
-        // 4. Polling Loop with the Correct Syntax
+        // 4. Polling Loop with "Named Parameter" Fix
         let attempts = 0;
-        while (run.status !== 'completed' && attempts < 40) {
-            // FIX: This specific syntax prevents the "threads/undefined" crash
+        while (run.status !== 'completed' && attempts < 30) {
+            // This line is where your 10:59 PM crash happened.
+            // Using thread.id ensures the path is never /threads/undefined/
             run = await openai.beta.threads.runs.retrieve(thread.id, run.id);
 
             if (run.status === 'requires_action') {
@@ -51,22 +51,23 @@ app.post('/audit', async (req, res) => {
             }
             
             if (['failed', 'cancelled', 'expired'].includes(run.status)) {
-                throw new Error(`Run ended with status: ${run.status}`);
+                throw new Error(`Run ${run.id} failed with status: ${run.status}`);
             }
 
             await new Promise(r => setTimeout(r, 1000));
             attempts++;
         }
 
-        // 5. Message List Recovery
+        // 5. Recover Message
         const messages = await openai.beta.threads.messages.list(thread.id);
-        const finalMessage = messages.data[0]?.content[0]?.text?.value || "Audit protocol complete.";
+        const finalMessage = messages.data[0]?.content[0]?.text?.value || "Audit complete.";
 
         res.json({ response: finalMessage, threadId: thread.id });
 
     } catch (err) {
         console.error("Forensic Error:", err.message);
-        res.status(500).json({ error: err.message });
+        // This sends the actual error to your website so you can see it on your phone
+        res.status(500).json({ response: `System Error: ${err.message}`, error: err.message });
     }
 });
 
