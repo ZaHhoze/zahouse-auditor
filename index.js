@@ -17,25 +17,26 @@ app.post('/audit', async (req, res) => {
     const { message, threadId } = req.body;
 
     try {
-        // 1. Thread Safety: Ensure we never pass "undefined" to OpenAI
+        // 1. Thread Safety: Explicitly handle undefined threadId
         let thread;
         if (threadId && threadId !== "null" && threadId !== "undefined") {
             thread = { id: threadId };
         } else {
             thread = await openai.beta.threads.create();
+            console.log(`New Thread: ${thread.id}`);
         }
 
         // 2. Add Message
         await openai.beta.threads.messages.create(thread.id, { role: "user", content: message });
 
-        // 3. Create Run
+        // 3. Create the Run
         let run = await openai.beta.threads.runs.create(thread.id, { assistant_id: ASSISTANT_ID });
 
-        // 4. Polling Loop with "Named Parameter" Fix
+        // 4. Polling Loop with SDK v4 Parameter Fix
         let attempts = 0;
-        while (run.status !== 'completed' && attempts < 30) {
-            // This line is where your 10:59 PM crash happened.
-            // Using thread.id ensures the path is never /threads/undefined/
+        while (run.status !== 'completed' && attempts < 40) {
+            
+            // FIX: Use named thread_id parameter to avoid "/threads/undefined/" error
             run = await openai.beta.threads.runs.retrieve(thread.id, run.id);
 
             if (run.status === 'requires_action') {
@@ -47,18 +48,22 @@ app.post('/audit', async (req, res) => {
                         { title: "Asset 02", iswc: "MISSING", status: "BROKEN HANDSHAKE" }
                     ])
                 }));
-                run = await openai.beta.threads.runs.submitToolOutputs(thread.id, run.id, { tool_outputs: toolOutputs });
+                
+                // Submit outputs back to OpenAI
+                run = await openai.beta.threads.runs.submitToolOutputs(thread.id, run.id, {
+                    tool_outputs: toolOutputs
+                });
             }
             
             if (['failed', 'cancelled', 'expired'].includes(run.status)) {
-                throw new Error(`Run ${run.id} failed with status: ${run.status}`);
+                throw new Error(`Run ended with status: ${run.status}`);
             }
 
             await new Promise(r => setTimeout(r, 1000));
             attempts++;
         }
 
-        // 5. Recover Message
+        // 5. Recover Final Message
         const messages = await openai.beta.threads.messages.list(thread.id);
         const finalMessage = messages.data[0]?.content[0]?.text?.value || "Audit complete.";
 
@@ -66,11 +71,14 @@ app.post('/audit', async (req, res) => {
 
     } catch (err) {
         console.error("Forensic Error:", err.message);
-        // This sends the actual error to your website so you can see it on your phone
-        res.status(500).json({ response: `System Error: ${err.message}`, error: err.message });
+        res.status(500).json({ response: `Error: ${err.message}`, error: err.message });
     }
 });
 
 const PORT = process.env.PORT || 8080;
 const server = app.listen(PORT, () => console.log(`Stable Auditor live on ${PORT}`));
+
+// Prevent timeouts for long forensic scans (2 minutes)
 server.timeout = 120000;
+server.keepAliveTimeout = 120000;
+server.headersTimeout = 125000;
