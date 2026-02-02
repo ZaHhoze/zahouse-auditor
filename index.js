@@ -12,7 +12,7 @@ const openai = new OpenAI({
     timeout: 60000 
 });
 
-// CRITICAL: Ensure this matches the ID in your .env file
+// CRITICAL: This must be your 'asst_' ID from the Assistants tab, NOT the 'pmpt_' ID.
 const ASSISTANT_ID = process.env.ASSISTANT_ID; 
 
 app.post('/audit', async (req, res) => {
@@ -21,6 +21,7 @@ app.post('/audit', async (req, res) => {
     try {
         // --- STEP 1: FORCE THREAD LOCK ---
         // We create a new variable 'activeThreadId' that CANNOT be undefined.
+        // This fixes the "Value of type Undefined" error you see in the logs.
         let activeThreadId;
 
         if (threadId && threadId.startsWith('thread_')) {
@@ -33,7 +34,6 @@ app.post('/audit', async (req, res) => {
         }
 
         // --- STEP 2: SEND MESSAGE ---
-        // We use 'activeThreadId' strictly from here on.
         await openai.beta.threads.messages.create(activeThreadId, { 
             role: "user", 
             content: message 
@@ -44,24 +44,23 @@ app.post('/audit', async (req, res) => {
             assistant_id: ASSISTANT_ID 
         });
         
-        // --- STEP 4: POLLING LOOP (The Crash Zone) ---
+        // --- STEP 4: POLLING LOOP ---
         let attempts = 0;
         while (run.status !== 'completed' && attempts < 60) {
             
             // SLEEP
             await new Promise(r => setTimeout(r, 1000));
 
-            // CRITICAL FIX: We explicitly pass the LOCKED ID.
-            // This prevents the "/threads/undefined/" error.
+            // THE FIX: We use 'activeThreadId' which we locked in Step 1.
             run = await openai.beta.threads.runs.retrieve(activeThreadId, run.id);
 
-            // LOGGING: Watch your Railway logs for this line!
+            // LOGGING: Check your Railway logs for this specific line if it fails
             console.log(`Checking Run: ${run.id} on Thread: ${activeThreadId} -> Status: ${run.status}`);
 
             if (run.status === 'requires_action') {
-                // If it tries to use a tool, we force it back to text-only
+                // If it tries to search the web (which is broken), we force it to stop
                 await openai.beta.threads.runs.cancel(activeThreadId, run.id);
-                throw new Error("Tool use cancelled. Please use Knowledge Base only.");
+                throw new Error("I can only check your uploaded Knowledge Base files.");
             }
 
             if (['failed', 'cancelled', 'expired'].includes(run.status)) {
@@ -72,7 +71,7 @@ app.post('/audit', async (req, res) => {
 
         // --- STEP 5: GET RESPONSE ---
         const messages = await openai.beta.threads.messages.list(activeThreadId);
-        const advice = messages.data[0]?.content[0]?.text?.value || "I checked the files but found no response.";
+        const advice = messages.data[0]?.content[0]?.text?.value || "I reviewed the files but found no response.";
 
         res.json({ response: advice, threadId: activeThreadId });
 
