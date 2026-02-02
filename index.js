@@ -12,17 +12,17 @@ app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// 🚨 THE NUCLEAR FIX: HARDCODED KEY 🚨
+// 🚨 FINAL HARDCODED KEY FIX 🚨
 // ==========================================
 const HARDCODED_KEY = "AIzaSyDx5K2kBXNUphvE7aRFeon_JqM5eE32WWk"; 
 
 const genAI = new GoogleGenerativeAI(HARDCODED_KEY);
 const fileManager = new GoogleAIFileManager(HARDCODED_KEY);
 
-// FIXED: Using 'gemini-1.5-flash' for maximum Free Tier stability
+// CHANGED: Using 'gemini-pro' as it is the most stable identifier for Free Keys
 const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.5-flash", 
-    systemInstruction: "ROLE: ZaHouse Music Law Strategist. TONE: 'Suits meets The Streets'. Professional, swagger, metaphors."
+    model: "gemini-pro", 
+    systemInstruction: "ROLE: ZaHouse Music Law Strategist. TONE: 'Suits meets The Streets'."
 });
 
 const uploadDir = path.join(__dirname, 'uploads');
@@ -39,9 +39,8 @@ const upload = multer({ dest: 'uploads/' });
 app.post('/audit', upload.single('file'), async (req, res) => {
     let { message, threadId } = req.body;
     try {
-        const chat = model.startChat({ history: [] });
+        // We use generateContent directly for maximum reliability on Free Tier
         let result;
-
         if (req.file) {
             const originalExt = path.extname(req.file.originalname) || ".pdf";
             const newPath = req.file.path + originalExt;
@@ -52,15 +51,15 @@ app.post('/audit', upload.single('file'), async (req, res) => {
                 displayName: req.file.originalname,
             });
 
-            await new Promise(r => setTimeout(r, 2000)); // 2 sec buffer for free tier file processing
+            await new Promise(r => setTimeout(r, 2000));
 
-            result = await chat.sendMessage([
+            result = await model.generateContent([
                 { fileData: { mimeType: uploadResponse.file.mimeType, fileUri: uploadResponse.file.uri } },
-                { text: message || "Analyze this contract for red flags." }
+                { text: message || "Analyze this for legal red flags." }
             ]);
             fs.unlinkSync(newPath);
         } else {
-            result = await chat.sendMessage(message || "Hello");
+            result = await model.generateContent(message || "Hello");
         }
 
         res.json({ response: result.response.text(), threadId: threadId || "gen_" + Date.now() });
@@ -68,7 +67,7 @@ app.post('/audit', upload.single('file'), async (req, res) => {
     } catch (err) {
         console.error("Gemini Error:", err);
         res.status(500).json({ 
-            response: `**FREE TIER ERROR:** ${err.message}. \n\n*Ensure your API Key is from Google AI Studio and not Google Cloud Vertex AI.*`, 
+            response: `**STILL UNABLE TO REACH BRAIN:** ${err.message}. \n\n*Check your Google AI Studio dashboard to ensure the 'Generative Language API' is enabled.*`, 
             error: err.message 
         });
     }
