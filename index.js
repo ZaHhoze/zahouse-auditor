@@ -87,5 +87,4 @@ app.post('/audit', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Stable Auditor Server live on ${PORT}`));
-server.timeout = 120000; // Increase to 120 seconds
-server.keepAliveTimeout = 120000;
+
