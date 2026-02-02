@@ -1,79 +1,52 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const OpenAI = require('openai');
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-const openai = new OpenAI({ 
-    apiKey: process.env.OPENAI_API_KEY,
-    timeout: 60000 
-});
-const ASSISTANT_ID = process.env.ASSISTANT_ID;
+// ... (keep your top imports)
 
 app.post('/audit', async (req, res) => {
     const { message, threadId } = req.body;
 
     try {
+        // FORCE ID CHECK: If it's missing, we start fresh to avoid the /undefined/ crash
         let thread;
-        if (threadId && threadId !== "null" && threadId !== "undefined") {
+        if (threadId && threadId.startsWith('thread_')) {
             thread = { id: threadId };
         } else {
             thread = await openai.beta.threads.create();
-            console.log(`New Thread Created: ${thread.id}`);
         }
+
+        console.log("Current Thread ID:", thread.id); // This will show in Railway logs
 
         await openai.beta.threads.messages.create(thread.id, { role: "user", content: message });
 
+        // Create the run
         let run = await openai.beta.threads.runs.create(thread.id, { assistant_id: ASSISTANT_ID });
 
+        // POLLING LOOP
         let attempts = 0;
-        while (run.status !== 'completed' && attempts < 40) {
+        while (run.status !== 'completed' && attempts < 30) {
             
-            // FIX: Explicitly passing thread_id in the options object 
-            // This prevents the "threads/undefined" path parameter error
+            // SYNTAX FIX: This format is the most stable for Node SDK v4
             run = await openai.beta.threads.runs.retrieve(thread.id, run.id);
 
             if (run.status === 'requires_action') {
                 const toolCalls = run.required_action.submit_tool_outputs.tool_calls;
                 const toolOutputs = toolCalls.map(tc => ({
                     tool_call_id: tc.id,
-                    output: JSON.stringify([
-                        { title: "Asset 01", iswc: "T-010.556.789-0", status: "ISWC SECURE" },
-                        { title: "Asset 02", iswc: "MISSING", status: "BROKEN HANDSHAKE" }
-                    ])
+                    output: JSON.stringify([{ title: "Asset 01", iswc: "T-010.556.789-0", status: "ISWC SECURE" }])
                 }));
                 
-                run = await openai.beta.threads.runs.submitToolOutputs(thread.id, run.id, {
-                    tool_outputs: toolOutputs
-                });
+                run = await openai.beta.threads.runs.submitToolOutputs(thread.id, run.id, { tool_outputs: toolOutputs });
             }
             
-            if (['failed', 'cancelled', 'expired'].includes(run.status)) {
-                throw new Error(`Run ended with status: ${run.status}`);
-            }
+            if (run.status === 'failed') throw new Error("Assistant Brain Failed");
 
             await new Promise(r => setTimeout(r, 1000));
             attempts++;
         }
 
-        // FIX: Ensure thread_id is passed correctly for the message list
         const messages = await openai.beta.threads.messages.list(thread.id);
-        const finalMessage = messages.data[0]?.content[0]?.text?.value || "Audit complete.";
-
-        res.json({ response: finalMessage, threadId: thread.id });
+        res.json({ response: messages.data[0].content[0].text.value, threadId: thread.id });
 
     } catch (err) {
-        console.error("Forensic Error:", err.message);
-        res.status(500).json({ response: `Error: ${err.message}`, error: err.message });
+        console.error("CRITICAL CRASH:", err.message);
+        res.status(500).json({ error: "System Reset Required", details: err.message });
     }
 });
-
-const PORT = process.env.PORT || 8080;
-const server = app.listen(PORT, () => console.log(`Stable Auditor live on ${PORT}`));
-
-server.timeout = 120000;
-server.keepAliveTimeout = 120000;
-server.headersTimeout = 125000;
