@@ -1,7 +1,10 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const OpenAI = require('openai');
+const openai = new OpenAI({ 
+    apiKey: process.env.OPENAI_API_KEY,
+    timeout: 60000 // 60 seconds
+});
 
 const app = express();
 app.use(cors());
@@ -87,3 +90,5 @@ app.post('/audit', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Stable Auditor Server live on ${PORT}`));
+server.timeout = 120000; // Increase to 120 seconds
+server.keepAliveTimeout = 120000;
