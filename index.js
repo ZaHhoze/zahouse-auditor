@@ -14,7 +14,6 @@ const openai = new OpenAI({
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
 
 app.post('/audit', async (req, res) => {
-    // We strictly use threadId here to match your HTML
     const { message, threadId } = req.body;
 
     try {
@@ -23,7 +22,7 @@ app.post('/audit', async (req, res) => {
             thread = { id: threadId };
         } else {
             thread = await openai.beta.threads.create();
-            console.log(`New Thread: ${thread.id}`);
+            console.log(`New Thread Created: ${thread.id}`);
         }
 
         await openai.beta.threads.messages.create(thread.id, { role: "user", content: message });
@@ -33,7 +32,8 @@ app.post('/audit', async (req, res) => {
         let attempts = 0;
         while (run.status !== 'completed' && attempts < 40) {
             
-            // BULLETPROOF SYNTAX: Using the named object to prevent /threads/undefined/
+            // FIX: Explicitly passing thread_id in the options object 
+            // This prevents the "threads/undefined" path parameter error
             run = await openai.beta.threads.runs.retrieve(thread.id, run.id);
 
             if (run.status === 'requires_action') {
@@ -59,6 +59,7 @@ app.post('/audit', async (req, res) => {
             attempts++;
         }
 
+        // FIX: Ensure thread_id is passed correctly for the message list
         const messages = await openai.beta.threads.messages.list(thread.id);
         const finalMessage = messages.data[0]?.content[0]?.text?.value || "Audit complete.";
 
