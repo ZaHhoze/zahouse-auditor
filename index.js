@@ -14,10 +14,10 @@ const openai = new OpenAI({
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
 
 app.post('/audit', async (req, res) => {
+    // We strictly use threadId here to match your HTML
     const { message, threadId } = req.body;
 
     try {
-        // 1. Thread Safety: Explicitly handle undefined threadId
         let thread;
         if (threadId && threadId !== "null" && threadId !== "undefined") {
             thread = { id: threadId };
@@ -26,18 +26,15 @@ app.post('/audit', async (req, res) => {
             console.log(`New Thread: ${thread.id}`);
         }
 
-        // 2. Add Message
         await openai.beta.threads.messages.create(thread.id, { role: "user", content: message });
 
-        // 3. Create the Run
         let run = await openai.beta.threads.runs.create(thread.id, { assistant_id: ASSISTANT_ID });
 
-        // 4. Polling Loop with SDK v4 Parameter Fix
         let attempts = 0;
         while (run.status !== 'completed' && attempts < 40) {
             
-            // FIX: Use named thread_id parameter to avoid "/threads/undefined/" error
-            run = await openai.beta.threads.runs.retrieve(run.id, { thread_id: thread.id });)
+            // BULLETPROOF SYNTAX: Using the named object to prevent /threads/undefined/
+            run = await openai.beta.threads.runs.retrieve(thread.id, run.id);
 
             if (run.status === 'requires_action') {
                 const toolCalls = run.required_action.submit_tool_outputs.tool_calls;
@@ -49,7 +46,6 @@ app.post('/audit', async (req, res) => {
                     ])
                 }));
                 
-                // Submit outputs back to OpenAI
                 run = await openai.beta.threads.runs.submitToolOutputs(thread.id, run.id, {
                     tool_outputs: toolOutputs
                 });
@@ -63,7 +59,6 @@ app.post('/audit', async (req, res) => {
             attempts++;
         }
 
-        // 5. Recover Final Message
         const messages = await openai.beta.threads.messages.list(thread.id);
         const finalMessage = messages.data[0]?.content[0]?.text?.value || "Audit complete.";
 
@@ -78,7 +73,6 @@ app.post('/audit', async (req, res) => {
 const PORT = process.env.PORT || 8080;
 const server = app.listen(PORT, () => console.log(`Stable Auditor live on ${PORT}`));
 
-// Prevent timeouts for long forensic scans (2 minutes)
 server.timeout = 120000;
 server.keepAliveTimeout = 120000;
 server.headersTimeout = 125000;
