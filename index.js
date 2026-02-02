@@ -10,18 +10,18 @@ app.use(express.json());
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
 
-// Identifies your app to MusicBrainz (Required to avoid IP blocking)
-const USER_AGENT = "ZaHouseForensicAuditor/1.0.0 ( dcrutchfield@za.house )";
+// MANDATORY: Update with your real contact email
+const USER_AGENT = "ZaHouseForensicAuditor/1.0.0 ( your-email@example.com )";
 
 /**
- * STEP 1 & 2 OF FORENSIC CHAIN: Live Registry Search
- * Fetches real ISWCs and metadata from MusicBrainz
+ * LIVE FORENSIC SEARCH: MusicBrainz API Integration
+ * Fetches real ISWCs for the 3-step forensic chain.
  */
 async function performForensicCatalogSearch(artistName) {
     try {
-        console.log(`Auditing MusicBrainz for: ${artistName}...`);
+        console.log(`[Forensic Protocol] Auditing: ${artistName}...`);
         
-        // 1. Search for Artist MBID
+        // 1. Resolve Artist Identity (MBID)
         const artistUrl = `https://musicbrainz.org/ws/2/artist?query=${encodeURIComponent(artistName)}&fmt=json`;
         const artistRes = await fetch(artistUrl, { headers: { "User-Agent": USER_AGENT } });
         const artistData = await artistRes.json();
@@ -29,21 +29,20 @@ async function performForensicCatalogSearch(artistName) {
         if (!artistData.artists || artistData.artists.length === 0) return [];
         const artistId = artistData.artists[0].id;
 
-        // 2. Search for Works (Compositions/ISWCs)
+        // 2. Resolve Works & ISWCs (Composition Identity)
         const worksUrl = `https://musicbrainz.org/ws/2/work?artist=${artistId}&limit=50&fmt=json`;
         const worksRes = await fetch(worksUrl, { headers: { "User-Agent": USER_AGENT } });
         const worksData = await worksRes.json();
 
-        // 3. Transform to Forensic Structure for AI analysis
+        // 3. Format for Assistant Analysis
         return worksData.works.map(work => ({
             title: work.title,
             iswc: work.iswcs?.[0] || "MISSING",
-            type: work.type || "Musical Work",
             status: work.iswcs?.[0] ? "ISWC SECURE" : "BROKEN HANDSHAKE"
         }));
     } catch (error) {
-        console.error("MusicBrainz API Error:", error);
-        return { error: "Failed to connect to global registries." };
+        console.error("Registry Error:", error);
+        return { error: "Could not reach global registries." };
     }
 }
 
@@ -51,12 +50,14 @@ app.post('/audit', async (req, res) => {
     const { message, threadId } = req.body;
 
     try {
+        // Initialize Session
         const thread = threadId ? { id: threadId } : await openai.beta.threads.create();
         await openai.beta.threads.messages.create(thread.id, { role: "user", content: message });
 
+        // Trigger Run
         let run = await openai.beta.threads.runs.create(thread.id, { assistant_id: ASSISTANT_ID });
 
-        // Polling loop to handle AI's tool requests
+        // Polling Loop with Tool Support
         while (run.status !== 'completed') {
             run = await openai.beta.threads.runs.retrieve(thread.id, run.id);
 
@@ -67,27 +68,46 @@ app.post('/audit', async (req, res) => {
                 for (const toolCall of toolCalls) {
                     if (toolCall.function.name === "perform_forensic_catalog_search") {
                         const args = JSON.parse(toolCall.function.arguments);
-                        const liveResults = await performForensicCatalogSearch(args.artistName);
+                        const results = await performForensicCatalogSearch(args.artistName);
 
                         toolOutputs.push({
                             tool_call_id: toolCall.id,
-                            output: JSON.stringify(liveResults)
+                            output: JSON.stringify(results)
                         });
                     }
                 }
+                // Submit Findings back to AI
                 run = await openai.beta.threads.runs.submitToolOutputs(thread.id, run.id, { tool_outputs: toolOutputs });
             } else if (run.status === 'failed') {
-                throw new Error(run.last_error ? run.last_error.message : "Run failed.");
+                throw new Error(`Run Failed: ${run.last_error?.message || "Unknown error"}`);
             }
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Rate limit polling
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Delay to respect rate limits
         }
 
-        const messages = await openai.beta.threads.messages.list(thread.id);
-        res.json({ response: messages.data[0].content[0].text.value, threadId: thread.id });
+        /**
+         * SAFETY RETRY LOGIC: Prevents "undefined" by verifying the message exists
+         */
+        let finalMessage = null;
+        for (let i = 0; i < 3; i++) { // Try up to 3 times
+            const messageList = await openai.beta.threads.messages.list(thread.id);
+            if (messageList.data[0] && messageList.data[0].role === 'assistant') {
+                finalMessage = messageList.data[0].content[0].text.value;
+                break;
+            }
+            console.log(`Response pending (Retry ${i+1}/3)...`);
+            await new Promise(r => setTimeout(r, 1500)); 
+        }
+
+        if (!finalMessage) throw new Error("Assistant response remained undefined after retries.");
+
+        res.json({
+            response: finalMessage,
+            threadId: thread.id
+        });
 
     } catch (error) {
-        console.error("Audit System Error:", error);
-        res.status(500).json({ error: "Forensic logic error. Check server logs." });
+        console.error("Audit System Error:", error.message);
+        res.status(500).json({ error: "Forensic logic error. Please try again." });
     }
 });
 
