@@ -4,30 +4,25 @@ const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-const { GoogleAIFileManager } = require("@google/generative-ai/server");
+const Groq = require("groq-sdk"); // The New Brain
+const pdf = require('pdf-parse'); // The PDF Reader
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// 🚨 FINAL HARDCODED KEY FIX 🚨
+// 🚨 PASTE YOUR GROQ KEY HERE 🚨
 // ==========================================
-const HARDCODED_KEY = "AIzaSyDx5K2kBXNUphvE7aRFeon_JqM5eE32WWk"; 
+// SAFE MODE: Use the Variable from Railway
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const groq = new Groq({ apiKey: GROQ_API_KEY });
 
-const genAI = new GoogleGenerativeAI(HARDCODED_KEY);
-const fileManager = new GoogleAIFileManager(HARDCODED_KEY);
-
-// CHANGED: Using 'gemini-pro' as it is the most stable identifier for Free Keys
-const model = genAI.getGenerativeModel({ 
-    model: "gemini-pro", 
-    systemInstruction: "ROLE: ZaHouse Music Law Strategist. TONE: 'Suits meets The Streets'."
-});
-
+// Ensure uploads folder exists
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) { fs.mkdirSync(uploadDir); }
 
+// Force HTML Dashboard
 app.get('/', (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -36,42 +31,50 @@ app.get('/', (req, res) => {
 app.use(express.static(path.join(__dirname, 'public')));
 const upload = multer({ dest: 'uploads/' });
 
+// --- THE NEW LOGIC ENGINE ---
 app.post('/audit', upload.single('file'), async (req, res) => {
     let { message, threadId } = req.body;
+    let context = "";
+
     try {
-        // We use generateContent directly for maximum reliability on Free Tier
-        let result;
+        // 1. If a file is uploaded, we read the text manually
         if (req.file) {
-            const originalExt = path.extname(req.file.originalname) || ".pdf";
-            const newPath = req.file.path + originalExt;
-            fs.renameSync(req.file.path, newPath);
-
-            const uploadResponse = await fileManager.uploadFile(newPath, {
-                mimeType: req.file.mimetype || "application/pdf",
-                displayName: req.file.originalname,
-            });
-
-            await new Promise(r => setTimeout(r, 2000));
-
-            result = await model.generateContent([
-                { fileData: { mimeType: uploadResponse.file.mimeType, fileUri: uploadResponse.file.uri } },
-                { text: message || "Analyze this for legal red flags." }
-            ]);
-            fs.unlinkSync(newPath);
-        } else {
-            result = await model.generateContent(message || "Hello");
+            const dataBuffer = fs.readFileSync(req.file.path);
+            const pdfData = await pdf(dataBuffer);
+            context = `\n\nCONTRACT TEXT:\n${pdfData.text.substring(0, 20000)}`; // Limit to ~20k chars for speed
+            fs.unlinkSync(req.file.path); // Clean up
         }
 
-        res.json({ response: result.response.text(), threadId: threadId || "gen_" + Date.now() });
+        // 2. Send to Groq (Llama 3)
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [
+                {
+                    role: "system",
+                    content: "ROLE: ZaHouse Music Law Strategist. TONE: 'Suits meets The Streets'. Professional, swagger, metaphors. GOAL: Protect the artist. Call out 360 deals, bad royalties, and ownership traps."
+                },
+                {
+                    role: "user",
+                    content: (message || "Analyze this contract.") + context
+                }
+            ],
+            model: "llama3-70b-8192", // The Powerhouse Model
+            temperature: 0.6,
+        });
+
+        // 3. Send Response
+        res.json({ 
+            response: chatCompletion.choices[0]?.message?.content || "No analysis generated.", 
+            threadId: threadId || "groq_" + Date.now() 
+        });
 
     } catch (err) {
-        console.error("Gemini Error:", err);
+        console.error("Groq Error:", err);
         res.status(500).json({ 
-            response: `**STILL UNABLE TO REACH BRAIN:** ${err.message}. \n\n*Check your Google AI Studio dashboard to ensure the 'Generative Language API' is enabled.*`, 
+            response: `**ENGINE ERROR:** ${err.message}.`, 
             error: err.message 
         });
     }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`ZaHouse Free Tier Engine Live on Port ${PORT}`));
+app.listen(PORT, () => console.log(`ZaHouse Groq Engine Live on Port ${PORT}`));
