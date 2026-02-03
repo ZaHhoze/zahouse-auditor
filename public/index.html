@@ -13,7 +13,7 @@
         .logo span { background: var(--gold); color: black; padding: 2px 8px; border-radius: 4px; font-size: 18px; }
         
         /* THE NEGOTIATE BUTTON */
-        .premium-btn { background: var(--gold); color: black; text-align: center; padding: 15px; font-weight: 800; text-transform: uppercase; border-radius: 4px; cursor: pointer; text-decoration: none; transition: transform 0.2s; display: block; border: none; width: 100%; }
+        .premium-btn { background: var(--gold); color: black; text-align: center; padding: 15px; font-weight: 800; text-transform: uppercase; border-radius: 4px; cursor: pointer; text-decoration: none; transition: transform 0.2s; display: block; border: none; width: 100%; font-size: 14px; }
         .premium-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
 
         /* CHAT AREA */
@@ -34,9 +34,15 @@
         .send-btn { background: #333; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .send-btn:hover { background: var(--gold); color: black; }
         
-        /* MODAL */
+        /* MODALS */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); justify-content: center; align-items: center; z-index: 1000; }
-        .modal-box { background: #111; border: 1px solid var(--gold); padding: 50px; width: 450px; text-align: center; border-radius: 8px; }
+        .modal-box { background: #111; border: 1px solid var(--gold); padding: 40px; width: 450px; text-align: center; border-radius: 8px; position: relative; }
+        .close-btn { position: absolute; top: 15px; right: 20px; color: #666; cursor: pointer; font-size: 24px; }
+        
+        /* FORM STYLES */
+        .form-input { width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 15px; border-radius: 4px; box-sizing: border-box; }
+        .form-label { text-align: left; display: block; margin-bottom: 5px; color: var(--gold); font-size: 12px; font-weight: bold; uppercase; letter-spacing: 1px; }
+        
         .dl-btn { display: block; width: 100%; margin-top: 20px; background: transparent; border: 1px solid var(--gold); color: var(--gold); padding: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; border-radius: 4px; }
         .dl-btn:hover { background: var(--gold); color: black; }
     </style>
@@ -48,7 +54,7 @@
             <div style="color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px;">Law Strategist</div>
             <p style="font-size: 13px; color: #888; line-height: 1.6;">⚖️ Decode contracts with leverage logic.<br><br>📀 Masters vs. Publishing equity analysis.<br><br>🛡️ Protection against 360 deals.</p>
         </div>
-        <a href="https://calendly.com" target="_blank" class="premium-btn">Negotiate My Deal</a>
+        <button onclick="openContactModal()" class="premium-btn">Negotiate My Deal</button>
     </div>
 
     <div class="main">
@@ -67,8 +73,38 @@
         <div class="modal-box">
             <h2 style="color:var(--gold); margin-top:0;">🔒 PROTOCOL LOCKED</h2>
             <p style="color:#888; margin-bottom:30px;">Forensic Alpha reports are reserved for Protocol Members.</p>
-            <input type="email" id="emailField" placeholder="artist@example.com" style="width:90%; background:#1a1a1a; border:1px solid #333; color:white; padding:15px; margin-bottom:25px; text-align:center; border-radius:4px;">
-            <button class="premium-btn" onclick="submitEmail()">UNLOCK REPORT</button>
+            <input type="email" id="gateEmailField" placeholder="artist@example.com" class="form-input" style="text-align:center;">
+            <button class="premium-btn" onclick="submitGateEmail()">UNLOCK REPORT</button>
+        </div>
+    </div>
+
+    <div id="contactModal" class="modal">
+        <div class="modal-box" style="text-align:left;">
+            <span class="close-btn" onclick="closeContactModal()">&times;</span>
+            <h2 style="color:var(--gold); margin-top:0; text-align:center;">ENGINEER YOUR EQUITY</h2>
+            <p style="color:#888; margin-bottom:20px; text-align:center; font-size:13px;">Tell us who we are fighting for.</p>
+            
+            <label class="form-label">FULL NAME *</label>
+            <input type="text" id="cName" class="form-input" placeholder="Legal Name">
+            
+            <label class="form-label">EMAIL ADDRESS *</label>
+            <input type="email" id="cEmail" class="form-input" placeholder="you@label.com">
+            
+            <label class="form-label">ARTIST / BRAND NAME</label>
+            <input type="text" id="cArtist" class="form-input" placeholder="Stage Name">
+            
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1;">
+                    <label class="form-label">IPI # (Optional)</label>
+                    <input type="text" id="cIPI" class="form-input" placeholder="00123456789">
+                </div>
+                <div style="flex:1;">
+                    <label class="form-label">PRO</label>
+                    <input type="text" id="cPRO" class="form-input" placeholder="ASCAP/BMI/Etc">
+                </div>
+            </div>
+
+            <button class="premium-btn" onclick="submitContactForm()">REQUEST REPRESENTATION</button>
         </div>
     </div>
 
@@ -96,13 +132,11 @@
                 const res = await fetch('/audit', { method: 'POST', body: formData });
                 const data = await res.json();
 
-                // 🔥 Trigger the modal and STOP if email is missing
                 if (data.requiresEmail) { 
                     document.getElementById('emailModal').style.display = 'flex'; 
                     return; 
                 }
 
-                // Render AI response with formatting
                 chat.innerHTML += `<div class="msg ai">${formatResponse(data.response)}</div>`;
                 
                 if (data.isAudit) {
@@ -117,14 +151,41 @@
             } catch (e) { alert("System Error: " + e.message); }
         }
 
-        async function submitEmail() {
-            const emailInput = document.getElementById('emailField').value;
+        // --- GATE LOGIC ---
+        async function submitGateEmail() {
+            const emailInput = document.getElementById('gateEmailField').value;
             if (!emailInput.includes('@')) return alert("Enter a valid industry email");
             userEmail = emailInput;
             document.getElementById('emailModal').style.display = 'none';
-            // Capture lead in background
-            await fetch('/capture-lead', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email: userEmail }) });
+            await fetch('/capture-lead', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email: userEmail, type: 'GATE_UNLOCK' }) });
             sendMessage();
+        }
+
+        // --- CONTACT FORM LOGIC ---
+        function openContactModal() { document.getElementById('contactModal').style.display = 'flex'; }
+        function closeContactModal() { document.getElementById('contactModal').style.display = 'none'; }
+        
+        async function submitContactForm() {
+            const name = document.getElementById('cName').value;
+            const email = document.getElementById('cEmail').value;
+            const artist = document.getElementById('cArtist').value;
+            const ipi = document.getElementById('cIPI').value;
+            const pro = document.getElementById('cPRO').value;
+
+            if (!name || !email) return alert("Name and Email are required.");
+
+            const btn = document.querySelector('#contactModal .premium-btn');
+            btn.innerText = "SENDING...";
+
+            await fetch('/submit-inquiry', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ name, email, artist, ipi, pro })
+            });
+
+            alert("Request Received. A ZaHouse Strategist will contact you securely.");
+            closeContactModal();
+            btn.innerText = "REQUEST REPRESENTATION";
         }
 
         async function downloadPDF() {
@@ -137,7 +198,6 @@
             btn.innerText = "✅ DOWNLOAD COMPLETE";
         }
 
-        // Formats Markdown into Dark-Mode UI
         function formatResponse(text) {
             if (!text) return "";
             return text

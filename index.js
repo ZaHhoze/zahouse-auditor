@@ -24,31 +24,20 @@ ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a p
 GOAL: Provide high-value, specific legal and strategic guidance while naturally gathering user details (Name, Email, Socials) to build a long-term relationship.
 
 THE "SOFT SELL" PROTOCOL:
-1. Value First: Always answer the legal question first. Prove you know your stuff.
+1. Value First: Answer the legal question first. Prove you know your stuff.
 2. The "Hook": After giving value, pivot to the relationship.
-   - Example: "That clause looks standard, but it limits your publishing. I can break down the rest, but first—what's your artist name or IG? I want to see who I'm advising."
-   - Example: "This is a complex 360 deal. I can give you the red flags right now, but you should probably be on our VIP list for a human review. What's your email?"
 3. The "Close": If they seem overwhelmed, offer the lifeline: "Look, this is heavy stuff. ZaHouse engineers equity. If you want us to step in and negotiate this for you, fill out the contact form below."
 
 FORMATTING RULES (CRITICAL):
-1. Use ### for all Section Headers (e.g. ### 1. GRANT OF RIGHTS).
-2. Use **Bold** for key terms and specific numbers (e.g. **50% Royalty**, **In Perpetuity**).
-3. Use > Blockquotes for your "Strategy Notes" so they stand out visually (e.g. > **STRATEGY NOTE:** This is where they hide the money.).
+1. Use ### for all Section Headers.
+2. Use **Bold** for key terms.
+3. Use > Blockquotes for your "Strategy Notes".
 4. Never output raw JSON unless specifically asked for the Scorecard.
 
 TONE & STYLE:
-- Authority with Swagger: You are super knowledgeable and cool. You’ve seen every bad contract and every bad deal. Speak with confidence.
-- Metaphorical Master: Legal terms are boring; money is not. Use metaphors to explain complex concepts. (e.g., "Think of the Master Recording like the house you built, but the Publishing is the land it sits on.")
-- Urban & Professional: Professional enough for court, but authentic enough for the artist. Use terms like "points," "equity," "leverage," and "ownership."
-
-KNOWLEDGE SOURCE:
-- The Vault (Files First): Always check your uploaded Knowledge Base (PDFs, Case Studies) first for specific ZaHouse precedents.
-- General Mastery: If the files don't cover it, use your general legal knowledge to give top-tier advice on copyright, splits, AI, and royalties.
-
-BEHAVIOR:
-- The "Real Talk": If a user describes a bad deal, tell them straight up. Don't sugarcoat it.
-- The "Open Door": You provide high-level strategic guidance (Level 1). If the situation is complex or requires a custom contract, always remind them: "ZaHouse is here to engineer your equity. If you need deeper help, hit the button."
-- Disclaimer: Always end with a brief reminder that this is strategic guidance, not binding legal advice.
+- Authority with Swagger: Speak with absolute confidence.
+- Metaphorical Master: Use "Bricks vs. Dirt" logic.
+- Urban & Professional: "Points," "Equity," "Leverage."
 
 VISUAL SCORECARD PROTOCOL:
 If a contract is uploaded, you MUST output this EXACT Markdown Table:
@@ -91,16 +80,31 @@ async function generateAuditPDF(data) {
 
 const upload = multer({ dest: 'uploads/' });
 app.use(express.static(path.join(__dirname, 'public')));
-const LEADS_FILE = path.join(__dirname, 'leads.json');
-if (!fs.existsSync(LEADS_FILE)) fs.writeFileSync(LEADS_FILE, JSON.stringify([]));
 
+// --- DATA STORAGE ---
+const LEADS_FILE = path.join(__dirname, 'leads.json');
+const INQUIRIES_FILE = path.join(__dirname, 'inquiries.json'); // NEW: Stores contact form submissions
+
+if (!fs.existsSync(LEADS_FILE)) fs.writeFileSync(LEADS_FILE, JSON.stringify([]));
+if (!fs.existsSync(INQUIRIES_FILE)) fs.writeFileSync(INQUIRIES_FILE, JSON.stringify([]));
+
+// 1. SIMPLE EMAIL CAPTURE (The Gate)
 app.post('/capture-lead', (req, res) => {
-    const { email } = req.body;
+    const { email, type } = req.body;
     const leads = JSON.parse(fs.readFileSync(LEADS_FILE));
     if (!leads.find(l => l.email === email)) {
-        leads.push({ email, date: new Date().toISOString() });
+        leads.push({ email, type: type || 'GATE', date: new Date().toISOString() });
         fs.writeFileSync(LEADS_FILE, JSON.stringify(leads));
     }
+    res.json({ success: true });
+});
+
+// 2. DETAILED NEGOTIATION FORM (The Button)
+app.post('/submit-inquiry', (req, res) => {
+    const { name, email, artist, ipi, pro } = req.body;
+    const inquiries = JSON.parse(fs.readFileSync(INQUIRIES_FILE));
+    inquiries.push({ name, email, artist, ipi, pro, date: new Date().toISOString() });
+    fs.writeFileSync(INQUIRIES_FILE, JSON.stringify(inquiries));
     res.json({ success: true });
 });
 
@@ -118,7 +122,7 @@ app.post('/audit', upload.single('file'), async (req, res) => {
     // 1. CHECK IF EMAIL IS MISSING
     if (req.file && (!email || email === 'null' || email === '')) {
         if (req.file) fs.unlinkSync(req.file.path); 
-        return res.json({ response: "", requiresEmail: true }); // This triggers the modal
+        return res.json({ response: "", requiresEmail: true });
     }
 
     try {
@@ -138,13 +142,12 @@ app.post('/audit', upload.single('file'), async (req, res) => {
                 { role: "system", content: ZAHOUSE_SYSTEM_INSTRUCTIONS },
                 { role: "user", content: (message || "Hello") + contextData }
             ],
-            // 🔥 FIXED: Switch back to Llama 3.3 because Mixtral is dead
+            // 🔥 USING LLAMA 3.3 (Active)
             model: "llama-3.3-70b-versatile",
-            temperature: 0.5, // Keep low for good formatting
+            temperature: 0.5,
             max_tokens: 8000
         });
 
-        // 🔥 CRITICAL FIX: This sends the answer back to the frontend
         res.json({ response: chatCompletion.choices[0]?.message?.content, isAudit: isAudit });
 
     } catch (err) { 
