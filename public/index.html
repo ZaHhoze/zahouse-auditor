@@ -5,70 +5,117 @@
     <title>ZaHouse | Forensic Alpha</title>
     <style>
         :root { --bg: #050505; --gold: #D4AF37; --white: #fff; --gray: #1a1a1a; }
-        body { background: var(--bg); color: var(--white); font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        .sidebar { width: 300px; background: #0a0a0a; border-right: 1px solid #222; padding: 40px; }
+        body { background: var(--bg); color: var(--white); font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        
+        /* SIDEBAR */
+        .sidebar { width: 300px; background: #0a0a0a; border-right: 1px solid #222; padding: 40px; display: flex; flex-direction: column; justify-content: space-between; }
+        .logo { font-size: 24px; font-weight: 800; letter-spacing: -1px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+        .logo span { background: var(--gold); color: black; padding: 2px 8px; border-radius: 4px; font-size: 18px; }
+        
+        /* THE NEGOTIATE BUTTON (Restored) */
+        .premium-btn { background: var(--gold); color: black; text-align: center; padding: 15px; font-weight: 800; text-transform: uppercase; border-radius: 4px; cursor: pointer; text-decoration: none; transition: transform 0.2s; display: block; }
+        .premium-btn:hover { transform: translateY(-2px); }
+
+        /* CHAT AREA */
         .main { flex: 1; display: flex; flex-direction: column; }
         .chat { flex: 1; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-        .msg { padding: 20px; border-radius: 12px; max-width: 80%; line-height: 1.6; }
+        .msg { padding: 25px; border-radius: 8px; max-width: 80%; line-height: 1.6; font-size: 15px; }
         .ai { background: #111; border-left: 3px solid var(--gold); }
         .user { background: #333; align-self: flex-end; }
-        .input-bar { padding: 30px; background: #000; display: flex; gap: 10px; }
-        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 15px; border-radius: 8px; outline: none; }
-        button { background: var(--gold); border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 4px; }
+        
+        /* TABLE STYLING (Fixes "Convoluted" Text) */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #0a0a0a; border: 1px solid #333; }
+        th { text-align: left; color: var(--gold); border-bottom: 1px solid var(--gold); padding: 12px; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
+        td { padding: 12px; border-bottom: 1px solid #222; color: #ccc; font-size: 14px; }
+        
+        /* INPUT AREA */
+        .input-bar { padding: 30px; background: #000; display: flex; gap: 10px; border-top: 1px solid #222; }
+        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 15px; border-radius: 8px; outline: none; font-size: 16px; }
+        button.send { background: #333; color: white; border: none; padding: 0 25px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        
+        /* MODAL & DL BUTTON */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000; }
-        .modal-box { background: #111; border: 1px solid var(--gold); padding: 40px; width: 400px; text-align: center; }
-        .dl-btn { background: transparent; border: 1px solid var(--gold); color: var(--gold); width: 100%; margin-top: 15px; padding: 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .modal-box { background: #111; border: 1px solid var(--gold); padding: 50px; width: 450px; text-align: center; border-radius: 8px; }
+        .dl-btn { display: block; width: 100%; margin-top: 20px; background: transparent; border: 1px solid var(--gold); color: var(--gold); padding: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+        .dl-btn:hover { background: var(--gold); color: black; }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <h2 style="color:var(--gold)">ZH ZaHouse</h2>
-        <p style="font-size:12px; color:#888;">STRATEGIST PROTOCOL V5.6</p>
+        <div>
+            <div class="logo"><span>ZH</span> ZaHouse</div>
+            <div style="color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px;">Law Strategist</div>
+            <p style="font-size: 13px; color: #888; line-height: 1.6;">⚖️ Decode contracts with leverage logic.<br><br>📀 Masters vs. Publishing equity analysis.<br><br>🛡️ Protection against 360 deals.</p>
+        </div>
+        <a href="https://calendly.com" target="_blank" class="premium-btn">Negotiate My Deal</a>
     </div>
+
     <div class="main">
         <div class="chat" id="chatBox">
             <div class="msg ai">Yo, I'm the <strong>ZaHouse Music Law Strategist.</strong> Drop a contract or ask me about splits. I'm here to ensure you own the dirt, not just the bricks.</div>
         </div>
         <div class="input-bar">
             <input type="file" id="fileInput" style="display:none" onchange="handleFile()">
-            <button onclick="document.getElementById('fileInput').click()">📎</button>
-            <input type="text" id="userInput" placeholder="Upload contract..." onkeypress="if(event.key==='Enter') sendMessage()">
-            <button onclick="sendMessage()">➔</button>
+            <button onclick="document.getElementById('fileInput').click()" style="background:transparent; border:none; color:#666; font-size:24px; cursor:pointer;">📎</button>
+            <input type="text" id="userInput" placeholder="Upload contract or ask a question..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <button class="send" onclick="sendMessage()">➔</button>
         </div>
     </div>
+
     <div id="emailModal" class="modal">
         <div class="modal-box">
-            <h2 style="color:var(--gold)">🔒 PROTOCOL LOCKED</h2>
-            <p>Forensic Alpha reports are reserved for Protocol Members.</p>
-            <input type="email" id="emailField" placeholder="artist@example.com" style="width:90%; padding:10px; margin-bottom:20px;">
-            <button onclick="submitEmail()" style="width:100%">UNLOCK REPORT</button>
+            <h2 style="color:var(--gold); margin-top:0;">🔒 PROTOCOL LOCKED</h2>
+            <p style="color:#888; margin-bottom:30px;">Forensic Alpha reports are reserved for Protocol Members.</p>
+            <input type="email" id="emailField" placeholder="artist@example.com" style="width:85%; padding:15px; margin-bottom:25px; text-align:center;">
+            <div class="premium-btn" onclick="submitEmail()">UNLOCK REPORT</div>
         </div>
     </div>
+
     <script>
         let storedFile = null, userEmail = null, lastScore = 0, lastVerdict = "";
-        function handleFile() { storedFile = document.getElementById('fileInput').files[0]; document.getElementById('userInput').value = `Attached: ${storedFile.name}`; }
+
+        function handleFile() { 
+            storedFile = document.getElementById('fileInput').files[0]; 
+            document.getElementById('userInput').value = `[Attached: ${storedFile.name}]`; 
+        }
+
         async function sendMessage() {
             const input = document.getElementById('userInput'), chat = document.getElementById('chatBox');
             if (!input.value && !storedFile) return;
+            
             chat.innerHTML += `<div class="msg user">${input.value}</div>`;
-            const formData = new FormData(); formData.append('message', input.value);
+            const formData = new FormData(); 
+            formData.append('message', input.value);
             if (storedFile) formData.append('file', storedFile);
             if (userEmail) formData.append('email', userEmail);
-            input.value = ''; chat.scrollTop = chat.scrollHeight;
-            const res = await fetch('/audit', { method: 'POST', body: formData });
-            const data = await res.json();
-            if (data.requiresEmail) { document.getElementById('emailModal').style.display='flex'; return; }
-            chat.innerHTML += `<div class="msg ai">${data.response.replace(/\n/g, '<br>')}</div>`;
             
-            // 🔥 SMART BUTTON LOGIC: ONLY SHOW IF IT'S A GENUINE AUDIT
-            if (data.isAudit && data.response.includes("DEAL SCORE:")) {
-                const match = data.response.match(/DEAL SCORE:.*?(\d+)\/100/);
-                lastScore = match ? match[1] : 0; 
-                lastVerdict = data.response;
-                chat.innerHTML += `<button class="dl-btn" onclick="downloadPDF()">📄 DOWNLOAD OFFICIAL AUDIT PDF</button>`;
-            }
-            chat.scrollTop = chat.scrollHeight; storedFile = null;
+            input.value = ''; chat.scrollTop = chat.scrollHeight;
+
+            try {
+                const res = await fetch('/audit', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (data.requiresEmail) { 
+                    document.getElementById('emailModal').style.display='flex'; 
+                    return; 
+                }
+
+                // Render with visual table formatter
+                chat.innerHTML += `<div class="msg ai">${formatResponse(data.response)}</div>`;
+                
+                // SHOW BUTTON if it was an audit
+                if (data.isAudit) {
+                    const match = data.response.match(/SCORE:.*?(\d+)/); 
+                    lastScore = match ? match[1] : "N/A"; 
+                    lastVerdict = data.response;
+                    chat.innerHTML += `<button class="dl-btn" onclick="downloadPDF()">📄 DOWNLOAD OFFICIAL AUDIT PDF</button>`;
+                }
+                
+                chat.scrollTop = chat.scrollHeight; 
+                storedFile = null;
+            } catch (e) { alert("Error: " + e.message); }
         }
+
         async function submitEmail() {
             userEmail = document.getElementById('emailField').value;
             if (!userEmail.includes('@')) return alert("Invalid email");
@@ -76,11 +123,31 @@
             await fetch('/capture-lead', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email: userEmail }) });
             sendMessage();
         }
+
         async function downloadPDF() {
+            const btn = document.querySelector('.dl-btn');
+            btn.innerText = "⏳ GENERATING...";
             const res = await fetch('/download-audit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ score: lastScore, verdict: lastVerdict }) });
             const blob = await res.blob();
             const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = "ZaHouse_Audit.pdf"; a.click();
+            const a = document.createElement('a'); a.href = url; a.download = "ZaHouse_Forensic_Audit.pdf"; a.click();
+            btn.innerText = "✅ DOWNLOAD COMPLETE";
+        }
+
+        // VISUAL FORMATTER
+        function formatResponse(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/### (.*?)\n/g, '<h3 style="color:#D4AF37; margin:0 0 10px 0;">$1</h3>')
+                .replace(/\| (.*?) \|\n/g, (match) => { 
+                    const cells = match.split('|').filter(c => c.trim() !== '');
+                    if (match.includes('---')) return ''; 
+                    const tag = match.includes('METRIC') ? 'th' : 'td';
+                    return `<tr>${cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('')}</tr>`;
+                })
+                .replace(/(<tr>.*?<\/tr>)/g, '<table>$1</table>') 
+                .replace(/<\/table><table>/g, '') 
+                .replace(/\n/g, '<br>');
         }
     </script>
 </body>
