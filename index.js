@@ -12,18 +12,17 @@ app.use(cors());
 app.use(express.json());
 
 // --- CONFIGURATION ---
+// Automatically looks for GROQ_API_KEY or your ZAHOUSE_STRATEGIST variable
 const GROQ_API_KEY = process.env.GROQ_API_KEY || process.env.ZAHOUSE_STRATEGIST;
 const groq = new Groq({ apiKey: GROQ_API_KEY });
 
-// 1. KNOWLEDGE BASE (The Brain)
-// We read all PDFs in the 'knowledge_base' folder on startup
+// 1. KNOWLEDGE BASE (The Permanent Brain)
 let PERMANENT_BRAIN = "";
 
 async function loadBrain() {
     const brainDir = path.join(__dirname, 'knowledge_base');
     if (!fs.existsSync(brainDir)) {
         fs.mkdirSync(brainDir);
-        console.log("Created 'knowledge_base' folder. Put your Master Protocol PDFs here!");
         return;
     }
 
@@ -33,59 +32,53 @@ async function loadBrain() {
             console.log(`🧠 Memorizing: ${file}...`);
             const dataBuffer = fs.readFileSync(path.join(brainDir, file));
             const data = await pdf(dataBuffer);
-            PERMANENT_BRAIN += `\n\n--- SOURCE: ${file} ---\n${data.text.substring(0, 30000)}`;
+            // TRUNCATE BRAIN: Only take the core rules to save room for the audit
+            PERMANENT_BRAIN += `\n\n--- SOURCE: ${file} ---\n${data.text.substring(0, 10000)}`;
         }
     }
-    console.log("✅ Knowledge Base Loaded!");
+    console.log("✅ Knowledge Base Synchronized!");
 }
-loadBrain(); // Run on startup
+loadBrain();
 
 // --- UPLOAD HANDLING ---
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) { fs.mkdirSync(uploadDir); }
 const upload = multer({ dest: 'uploads/' });
 
-// --- DASHBOARD ---
+// Serve Dashboard
 app.get('/', (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 app.use(express.static(path.join(__dirname, 'public')));
 
-
-// --- THE V2 LOGIC ENGINE ---
+// --- THE LOGIC ENGINE ---
 app.post('/audit', upload.single('file'), async (req, res) => {
     let { message, threadId } = req.body;
     let contractText = "";
 
     try {
-        // 1. Read the CONTRACT (User Upload)
+        // 1. Read and SHRED the CONTRACT
         if (req.file) {
             const dataBuffer = fs.readFileSync(req.file.path);
             const pdfData = await pdf(dataBuffer);
-            contractText = `\n\n=== CONTRACT TO AUDIT ===\n${pdfData.text.substring(0, 50000)}`; 
+            // TRUNCATE: Only take the first 12,000 chars to avoid 400 Errors
+            contractText = `\n\n=== CONTRACT TO AUDIT ===\n${pdfData.text.substring(0, 12000)}`; 
             fs.unlinkSync(req.file.path); 
         }
 
-        // 2. The "Scorecard" Prompt
+        // 2. The Forensic Alpha Prompt
         const systemPrompt = `
-        ROLE: ZaHouse Music Law Strategist.
-        TONE: Brutally honest, high-leverage, "Suits meets The Streets".
+        ROLE: ZaHouse Forensic IP Architect. You decode "Engineered Equity".
+        TONE: "Suits meets The Streets". High-leverage, architectural metaphors.
         
-        YOUR BRAIN (KNOWLEDGE BASE):
-        ${PERMANENT_BRAIN}
+        YOUR PERMANENT KNOWLEDGE:
+        ${PERMANENT_BRAIN.substring(0, 15000)}
         
-        INSTRUCTIONS:
-        1. Compare the "CONTRACT TO AUDIT" against the "KNOWLEDGE BASE" (Your rules).
-        2. GENERATE A SCORECARD.
-        
-        REQUIRED OUTPUT FORMAT (Do not deviate):
-        
+        OUTPUT FORMAT (MANDATORY):
         # 🚨 DEAL SCORE: [0-100]/100
-        
         ## ⚖️ THE VERDICT
-        (2-3 sentences summary. Is this a bag or a trap?)
-        
+        (Summary of equity vs employment status)
         ## 📊 RISK ANALYSIS CHART
         | Category | Rating | Status |
         | :--- | :--- | :--- |
@@ -93,35 +86,34 @@ app.post('/audit', upload.single('file'), async (req, res) => {
         | **Royalty Rate** | [0-10]/10 | [Good/Bad] |
         | **360 Clauses** | [0-10]/10 | [Clean/Toxic] |
         | **Term Length** | [0-10]/10 | [Fair/Slave] |
-        
-        ## 🚩 RED FLAGS (The "Gotchas")
-        * **[Clause Name]**: [Why it sucks]. *Strategy: Change X to Y.*
-        * **[Clause Name]**: [Why it sucks]. *Strategy: Change X to Y.*
-        
-        ## 💎 THE ZAHOUSE STRATEGY
-        (How we counter-offer to win).
+        ## 🚩 RED FLAGS
+        * List the traps found in the text.
         `;
 
-        // 3. Send to Groq
+        // 3. Request Completion
         const chatCompletion = await groq.chat.completions.create({
             messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: (message || "Rate this deal.") + contractText }
+                { role: "user", content: (message || "Analyze this deal.") + contractText }
             ],
-            model: "llama-3.3-70b-versatile", 
-            temperature: 0.5, // Lower temp for more accurate math/tables
+            model: "llama-3.3-70b-versatile",
+            max_completion_tokens: 1500, // Safety cap to stay under minute limits
+            temperature: 0.5,
         });
 
         res.json({ 
             response: chatCompletion.choices[0]?.message?.content, 
-            threadId: threadId 
+            threadId: threadId || "groq_" + Date.now() 
         });
 
     } catch (err) {
         console.error("Groq Error:", err);
-        res.status(500).json({ response: `**ENGINE ERROR:** ${err.message}` });
+        res.status(400).json({ 
+            response: "📏 **LIMIT REACHED:** This contract is too massive for the Free Tier. I've analyzed the first 20 pages—check the results or try a shorter excerpt.",
+            error: err.message 
+        });
     }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`ZaHouse V2 (Scorecard Edition) Live on Port ${PORT}`));
+app.listen(PORT, () => console.log(`ZaHouse V2.1 Stabilized on Port ${PORT}`));
