@@ -11,16 +11,38 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- CONFIGURATION ---
+// --- CORE CONFIG ---
 const GROQ_API_KEY = process.env.GROQ_API_KEY || process.env.ZAHOUSE_STRATEGIST;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 const groq = new Groq({ apiKey: GROQ_API_KEY });
+
+// --- THE STRATEGIST PROTOCOL (Injected from Google AI Studio) ---
+const ZAHOUSE_SYSTEM_INSTRUCTIONS = `
+ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a protector of creative equity, and a deal-maker. You are here to decode the complex music industry for artists and labels.
+
+GOAL: Provide high-value legal and strategic guidance. If a user provides a contract (via text or PDF), you MUST generate a "Deal Scorecard".
+
+DEAL SCORECARD PROTOCOL:
+Evaluate the deal on these 5 metrics (0-10 scale):
+1. Ownership Equity: Does the artist own their masters?
+2. Recoupment: Are terms predatory (e.g., 100% recoupment)?
+3. Creative Control: Does the artist keep the final say?
+4. Duration/Term: Is the contract too long?
+5. Financial Transparency: Right to audit, clear accounting.
+
+TONE & STYLE:
+- Professional swagger. Use metaphors like "bricks vs. dirt".
+- Value First: Answer the legal question immediately.
+- The "Soft Sell": Pivot to relationship building and offer ZaHouse professional negotiation for complex cases.
+- CATCHPHRASE: Ensure they "own the dirt, not just the bricks."
+
+DISCLAIMER: Always end with: "Strategic guidance only. Not binding legal advice."
+`;
 
 // --- SEARCH TOOL (The Eyes) ---
 async function searchWeb(query) {
     if (!TAVILY_API_KEY) return null;
     try {
-        console.log(`🔎 Searching Tavily for: ${query}`);
         const response = await fetch("https://api.tavily.com/search", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -33,95 +55,68 @@ async function searchWeb(query) {
             })
         });
         const data = await response.json();
-        return `\n\n=== 🌍 LIVE WEB NEWS ===\n${data.answer}\n(Sources: ${data.results.map(r => r.title).join(', ')})`;
+        return `\n\n=== 🌍 LIVE STREET INTEL ===\n${data.answer}`;
     } catch (err) {
-        console.error("Search failed:", err);
         return null;
     }
 }
 
-// 1. KNOWLEDGE BASE (Permanent Brain)
+// --- KNOWLEDGE BASE ---
 let PERMANENT_BRAIN = "";
 async function loadBrain() {
     const brainDir = path.join(__dirname, 'knowledge_base');
     if (!fs.existsSync(brainDir)) { fs.mkdirSync(brainDir); return; }
-    
     const files = fs.readdirSync(brainDir);
     for (const file of files) {
         if (file.toLowerCase().endsWith('.pdf')) {
             const dataBuffer = fs.readFileSync(path.join(brainDir, file));
             const data = await pdf(dataBuffer);
-            PERMANENT_BRAIN += `\n\n--- SOURCE: ${file} ---\n${data.text.substring(0, 8000)}`;
+            PERMANENT_BRAIN += `\n\nSOURCE: ${file}\n${data.text.substring(0, 8000)}`;
         }
     }
-    console.log("✅ Knowledge Base Loaded!");
+    console.log("✅ Strategist Brain Loaded");
 }
 loadBrain();
 
-// --- UPLOAD HANDLING ---
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) { fs.mkdirSync(uploadDir); }
 const upload = multer({ dest: 'uploads/' });
-
-app.get('/', (req, res) => {
-    res.setHeader('Content-Type', 'text/html');
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- THE LOGIC ENGINE (V3) ---
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// --- THE MASTER ENGINE ---
 app.post('/audit', upload.single('file'), async (req, res) => {
-    let { message, threadId } = req.body;
-    let contractText = "";
-    let systemPrompt = "";
-    let searchContext = "";
+    let { message } = req.body;
+    let contextData = "";
 
     try {
-        // === MODE A: AUDIT (User uploaded a File) ===
         if (req.file) {
+            // AUDIT MODE
             const dataBuffer = fs.readFileSync(req.file.path);
             const pdfData = await pdf(dataBuffer);
-            contractText = `\n\n=== CONTRACT TO AUDIT ===\n${pdfData.text.substring(0, 15000)}`; 
+            contextData = `\n\n=== CONTRACT TO AUDIT ===\n${pdfData.text.substring(0, 15000)}`;
             fs.unlinkSync(req.file.path);
-
-            systemPrompt = `
-            ROLE: ZaHouse Forensic IP Architect.
-            TONE: "Suits meets The Streets".
-            YOUR KNOWLEDGE: ${PERMANENT_BRAIN.substring(0, 10000)}
-            TASK: Generate a Deal Scorecard (0-100), Verdict, Risk Table, and Red Flags.
-            `;
-            
         } else {
-            // === MODE B: CHAT + SEARCH (User Text Only) ===
-            const lowerMsg = message.toLowerCase();
-            // Trigger search if asking for news, updates, or specific entities
-            if (lowerMsg.includes("news") || lowerMsg.includes("latest") || lowerMsg.includes("suno") || lowerMsg.includes("lawsuit") || lowerMsg.includes("update")) {
+            // CHAT MODE + LIVE SEARCH
+            const lowerMsg = (message || "").toLowerCase();
+            if (lowerMsg.includes("news") || lowerMsg.includes("latest") || lowerMsg.includes("suno") || lowerMsg.includes("update")) {
                 const webResult = await searchWeb(message);
-                if (webResult) searchContext = webResult;
+                if (webResult) contextData = webResult;
             }
-
-            systemPrompt = `
-            ROLE: ZaHouse Music Law Strategist.
-            TONE: 'Suits meets The Streets'. Professional, swagger, metaphors.
-            YOUR KNOWLEDGE: ${PERMANENT_BRAIN.substring(0, 10000)}
-            INSTRUCTION: Use the 'LIVE WEB NEWS' below if present to answer accurately. Otherwise use your training.
-            `;
         }
 
         const chatCompletion = await groq.chat.completions.create({
             messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: (message || "Hello") + contractText + searchContext }
+                { role: "system", content: ZAHOUSE_SYSTEM_INSTRUCTIONS + "\n\nKNOWLEDGE BASE DATA:\n" + PERMANENT_BRAIN.substring(0, 8000) },
+                { role: "user", content: (message || "Hello") + contextData }
             ],
             model: "llama-3.3-70b-versatile",
-            max_completion_tokens: 1500, 
-            temperature: 0.6,
+            max_completion_tokens: 1500,
+            temperature: 0.7, // Balances accuracy with persona swagger
         });
 
-        res.json({ 
-            response: chatCompletion.choices[0]?.message?.content, 
-            threadId: threadId 
-        });
+        res.json({ response: chatCompletion.choices[0]?.message?.content });
 
     } catch (err) {
         console.error("Groq Error:", err);
@@ -130,4 +125,4 @@ app.post('/audit', upload.single('file'), async (req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`ZaHouse V3 (Live Internet) on Port ${PORT}`));
+app.listen(PORT, () => console.log(`ZaHouse V5.3 (Strategist Protocol) on Port ${PORT}`));
