@@ -12,31 +12,32 @@
         .logo { font-size: 24px; font-weight: 800; letter-spacing: -1px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
         .logo span { background: var(--gold); color: black; padding: 2px 8px; border-radius: 4px; font-size: 18px; }
         
-        /* THE NEGOTIATE BUTTON (Restored) */
-        .premium-btn { background: var(--gold); color: black; text-align: center; padding: 15px; font-weight: 800; text-transform: uppercase; border-radius: 4px; cursor: pointer; text-decoration: none; transition: transform 0.2s; display: block; }
-        .premium-btn:hover { transform: translateY(-2px); }
+        /* THE NEGOTIATE BUTTON */
+        .premium-btn { background: var(--gold); color: black; text-align: center; padding: 15px; font-weight: 800; text-transform: uppercase; border-radius: 4px; cursor: pointer; text-decoration: none; transition: transform 0.2s; display: block; border: none; width: 100%; }
+        .premium-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
 
         /* CHAT AREA */
         .main { flex: 1; display: flex; flex-direction: column; }
         .chat { flex: 1; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-        .msg { padding: 25px; border-radius: 8px; max-width: 80%; line-height: 1.6; font-size: 15px; }
-        .ai { background: #111; border-left: 3px solid var(--gold); }
-        .user { background: #333; align-self: flex-end; }
+        .msg { padding: 25px; border-radius: 8px; max-width: 80%; line-height: 1.6; font-size: 15px; transition: opacity 0.3s; }
+        .ai { background: #111; border-left: 3px solid var(--gold); color: #eee; }
+        .user { background: #222; align-self: flex-end; color: #fff; }
         
-        /* TABLE STYLING (Fixes "Convoluted" Text) */
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #0a0a0a; border: 1px solid #333; }
+        /* TABLE STYLING */
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; background: #000; border: 1px solid #333; }
         th { text-align: left; color: var(--gold); border-bottom: 1px solid var(--gold); padding: 12px; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
         td { padding: 12px; border-bottom: 1px solid #222; color: #ccc; font-size: 14px; }
         
         /* INPUT AREA */
-        .input-bar { padding: 30px; background: #000; display: flex; gap: 10px; border-top: 1px solid #222; }
-        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 15px; border-radius: 8px; outline: none; font-size: 16px; }
-        button.send { background: #333; color: white; border: none; padding: 0 25px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .input-bar { padding: 30px; background: #000; display: flex; gap: 10px; border-top: 1px solid #222; align-items: center; }
+        input[type="text"] { flex: 1; background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 15px; border-radius: 8px; outline: none; font-size: 16px; }
+        .send-btn { background: #333; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .send-btn:hover { background: var(--gold); color: black; }
         
-        /* MODAL & DL BUTTON */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000; }
+        /* MODAL */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); justify-content: center; align-items: center; z-index: 1000; }
         .modal-box { background: #111; border: 1px solid var(--gold); padding: 50px; width: 450px; text-align: center; border-radius: 8px; }
-        .dl-btn { display: block; width: 100%; margin-top: 20px; background: transparent; border: 1px solid var(--gold); color: var(--gold); padding: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+        .dl-btn { display: block; width: 100%; margin-top: 20px; background: transparent; border: 1px solid var(--gold); color: var(--gold); padding: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; border-radius: 4px; }
         .dl-btn:hover { background: var(--gold); color: black; }
     </style>
 </head>
@@ -58,7 +59,7 @@
             <input type="file" id="fileInput" style="display:none" onchange="handleFile()">
             <button onclick="document.getElementById('fileInput').click()" style="background:transparent; border:none; color:#666; font-size:24px; cursor:pointer;">📎</button>
             <input type="text" id="userInput" placeholder="Upload contract or ask a question..." onkeypress="if(event.key==='Enter') sendMessage()">
-            <button class="send" onclick="sendMessage()">➔</button>
+            <button class="send-btn" onclick="sendMessage()">➔</button>
         </div>
     </div>
 
@@ -66,8 +67,8 @@
         <div class="modal-box">
             <h2 style="color:var(--gold); margin-top:0;">🔒 PROTOCOL LOCKED</h2>
             <p style="color:#888; margin-bottom:30px;">Forensic Alpha reports are reserved for Protocol Members.</p>
-            <input type="email" id="emailField" placeholder="artist@example.com" style="width:85%; padding:15px; margin-bottom:25px; text-align:center;">
-            <div class="premium-btn" onclick="submitEmail()">UNLOCK REPORT</div>
+            <input type="email" id="emailField" placeholder="artist@example.com" style="width:90%; background:#1a1a1a; border:1px solid #333; color:white; padding:15px; margin-bottom:25px; text-align:center; border-radius:4px;">
+            <button class="premium-btn" onclick="submitEmail()">UNLOCK REPORT</button>
         </div>
     </div>
 
@@ -76,7 +77,7 @@
 
         function handleFile() { 
             storedFile = document.getElementById('fileInput').files[0]; 
-            document.getElementById('userInput').value = `[Attached: ${storedFile.name}]`; 
+            if (storedFile) document.getElementById('userInput').value = `[Analyzing: ${storedFile.name}]`; 
         }
 
         async function sendMessage() {
@@ -95,15 +96,15 @@
                 const res = await fetch('/audit', { method: 'POST', body: formData });
                 const data = await res.json();
 
+                // 🔥 Trigger the modal and STOP if email is missing
                 if (data.requiresEmail) { 
-                    document.getElementById('emailModal').style.display='flex'; 
+                    document.getElementById('emailModal').style.display = 'flex'; 
                     return; 
                 }
 
-                // Render with visual table formatter
+                // Render AI response with formatting
                 chat.innerHTML += `<div class="msg ai">${formatResponse(data.response)}</div>`;
                 
-                // SHOW BUTTON if it was an audit
                 if (data.isAudit) {
                     const match = data.response.match(/SCORE:.*?(\d+)/); 
                     lastScore = match ? match[1] : "N/A"; 
@@ -113,13 +114,15 @@
                 
                 chat.scrollTop = chat.scrollHeight; 
                 storedFile = null;
-            } catch (e) { alert("Error: " + e.message); }
+            } catch (e) { alert("System Error: " + e.message); }
         }
 
         async function submitEmail() {
-            userEmail = document.getElementById('emailField').value;
-            if (!userEmail.includes('@')) return alert("Invalid email");
-            document.getElementById('emailModal').style.display='none';
+            const emailInput = document.getElementById('emailField').value;
+            if (!emailInput.includes('@')) return alert("Enter a valid industry email");
+            userEmail = emailInput;
+            document.getElementById('emailModal').style.display = 'none';
+            // Capture lead in background
             await fetch('/capture-lead', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email: userEmail }) });
             sendMessage();
         }
@@ -134,15 +137,16 @@
             btn.innerText = "✅ DOWNLOAD COMPLETE";
         }
 
-        // VISUAL FORMATTER
+        // Formats Markdown into Dark-Mode UI
         function formatResponse(text) {
+            if (!text) return "";
             return text
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/### (.*?)\n/g, '<h3 style="color:#D4AF37; margin:0 0 10px 0;">$1</h3>')
+                .replace(/### (.*?)\n/g, '<h3 style="color:#D4AF37; margin-bottom:10px;">$1</h3>')
                 .replace(/\| (.*?) \|\n/g, (match) => { 
                     const cells = match.split('|').filter(c => c.trim() !== '');
                     if (match.includes('---')) return ''; 
-                    const tag = match.includes('METRIC') ? 'th' : 'td';
+                    const tag = match.includes('METRIC') || match.includes('⚖️') ? 'th' : 'td';
                     return `<tr>${cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('')}</tr>`;
                 })
                 .replace(/(<tr>.*?<\/tr>)/g, '<table>$1</table>') 
