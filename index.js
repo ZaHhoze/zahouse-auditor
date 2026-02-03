@@ -17,7 +17,7 @@ app.use(express.json());
 // --- CONFIGURATION ---
 const GROQ_API_KEY = process.env.GROQ_API_KEY || process.env.ZAHOUSE_STRATEGIST;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
-const EMAIL_USER = process.env.dcrutchfield@za.house; // Your Gmail Address
+const EMAIL_USER = process.env.dcrutch745@gmail.com; // Your Gmail Address
 const EMAIL_PASS = process.env.ekbl ltla qujm zdhk; // Your Gmail App Password
 
 const groq = new Groq({ apiKey: GROQ_API_KEY });
