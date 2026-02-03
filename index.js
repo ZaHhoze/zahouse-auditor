@@ -7,134 +7,109 @@ const path = require('path');
 const Groq = require("groq-sdk");
 const pdf = require('pdf-parse');
 
+// --- NEW: SEARCH TOOL ---
+// We use standard 'fetch' to avoid installing new packages
+const searchWeb = async (query) => {
+    try {
+        const response = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                api_key: process.env.TAVILY_API_KEY,
+                query: query,
+                search_depth: "basic",
+                include_answer: true, // Asks Tavily to write a summary
+                max_results: 3
+            })
+        });
+        const data = await response.json();
+        return `\n\n=== 🌍 LIVE WEB SEARCH RESULTS ===\n${data.answer || "No direct summary."}\nSources: ${data.results.map(r => r.content).join("\n")}`;
+    } catch (err) {
+        console.error("Search Error:", err);
+        return "\n\n(Note: Internet search failed. Answering from memory.)";
+    }
+};
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- CONFIGURATION ---
 const GROQ_API_KEY = process.env.GROQ_API_KEY || process.env.ZAHOUSE_STRATEGIST;
 const groq = new Groq({ apiKey: GROQ_API_KEY });
 
-// 1. KNOWLEDGE BASE (The Permanent Brain)
+// 1. KNOWLEDGE BASE (Permanent Brain)
 let PERMANENT_BRAIN = "";
-
 async function loadBrain() {
     const brainDir = path.join(__dirname, 'knowledge_base');
-    if (!fs.existsSync(brainDir)) {
-        fs.mkdirSync(brainDir);
-        return;
-    }
+    if (!fs.existsSync(brainDir)) { fs.mkdirSync(brainDir); return; }
     const files = fs.readdirSync(brainDir);
     for (const file of files) {
         if (file.toLowerCase().endsWith('.pdf')) {
-            console.log(`🧠 Memorizing: ${file}...`);
             const dataBuffer = fs.readFileSync(path.join(brainDir, file));
             const data = await pdf(dataBuffer);
-            // TRUNCATE: Only take core rules to save memory
             PERMANENT_BRAIN += `\n\n--- SOURCE: ${file} ---\n${data.text.substring(0, 10000)}`;
         }
     }
-    console.log("✅ Knowledge Base Synchronized!");
+    console.log("✅ Knowledge Base Loaded!");
 }
 loadBrain();
 
-// --- UPLOAD HANDLING ---
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) { fs.mkdirSync(uploadDir); }
 const upload = multer({ dest: 'uploads/' });
 
-// Serve Dashboard
-app.get('/', (req, res) => {
-    res.setHeader('Content-Type', 'text/html');
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- THE LOGIC ENGINE (DUAL MODE) ---
 app.post('/audit', upload.single('file'), async (req, res) => {
     let { message, threadId } = req.body;
-    let contractText = "";
+    let contextData = "";
     let systemPrompt = "";
 
     try {
-        // === MODE SELECTION ===
-        
         if (req.file) {
-            // 🚨 MODE A: AUDIT (User uploaded a PDF)
-            // We force the Scorecard Format
+            // --- MODE A: AUDIT (Scorecard) ---
             const dataBuffer = fs.readFileSync(req.file.path);
             const pdfData = await pdf(dataBuffer);
-            contractText = `\n\n=== CONTRACT TO AUDIT ===\n${pdfData.text.substring(0, 12000)}`; 
+            contextData = `\n\n=== CONTRACT TO AUDIT ===\n${pdfData.text.substring(0, 12000)}`; 
             fs.unlinkSync(req.file.path);
 
-            systemPrompt = `
-            ROLE: ZaHouse Forensic IP Architect.
-            TONE: "Suits meets The Streets". High-leverage, architectural metaphors.
-            
-            YOUR KNOWLEDGE BASE:
-            ${PERMANENT_BRAIN.substring(0, 15000)}
-            
-            TASK: Audit the attached contract.
-            
-            OUTPUT FORMAT (MANDATORY FOR AUDITS):
-            # 🚨 DEAL SCORE: [0-100]/100
-            ## ⚖️ THE VERDICT
-            (Summary of equity vs employment status)
-            ## 📊 RISK ANALYSIS CHART
-            | Category | Rating | Status |
-            | :--- | :--- | :--- |
-            | **Masters Ownership** | [0-10]/10 | [Safe/Trap] |
-            | **Royalty Rate** | [0-10]/10 | [Good/Bad] |
-            | **360 Clauses** | [0-10]/10 | [Clean/Toxic] |
-            | **Term Length** | [0-10]/10 | [Fair/Slave] |
-            ## 🚩 RED FLAGS
-            * List the traps found.
-            `;
+            systemPrompt = `ROLE: ZaHouse Forensic IP Architect. TONE: "Suits meets The Streets". KNOWLEDGE: ${PERMANENT_BRAIN.substring(0,10000)} OUTPUT: Deal Scorecard (0-100), Verdict, Risk Table, Red Flags.`;
             
         } else {
-            // 🗣️ MODE B: CHAT (User just asked a question)
-            // We use a Conversational Format (No Scorecard)
-            
+            // --- MODE B: CHAT + WEB SEARCH ---
+            // 1. Check if user wants "Real World" info
+            const lowerMsg = message.toLowerCase();
+            if (lowerMsg.includes("news") || lowerMsg.includes("latest") || lowerMsg.includes("search") || lowerMsg.includes("update") || lowerMsg.includes("suno") || lowerMsg.includes("who is")) {
+                console.log("🔎 Searching the web for:", message);
+                const searchResults = await searchWeb(message);
+                contextData += searchResults; // Inject live data
+            }
+
             systemPrompt = `
-            ROLE: ZaHouse Music Law Strategist.
-            TONE: 'Suits meets The Streets'. Professional, swagger, metaphors.
-            GOAL: Answer the artist's question using your legal knowledge. Do NOT generate a scorecard unless asked.
-
-            YOUR KNOWLEDGE BASE (LEGAL BIBLE):
-            ${PERMANENT_BRAIN.substring(0, 15000)}
-
-            KEY PROTOCOLS:
-            1. AI COPYRIGHT: USCO requires human authorship. You can copyright lyrics/composition, but not the AI audio. Disclose usage honestly.
-            2. STREAMING: Demand 20%+.
-            3. MASTERS: If they own it, you're an employee.
-            4. 360 DEALS: "You don't eat off plates you didn't cook on."
+            ROLE: ZaHouse Music Law Strategist. TONE: 'Suits meets The Streets'.
+            YOUR BRAIN: ${PERMANENT_BRAIN.substring(0, 10000)}
+            
+            INSTRUCTION: If 'LIVE WEB SEARCH RESULTS' are provided below, use them to answer the user's question with up-to-date facts. If not, use your legal knowledge.
             `;
         }
 
-        // 3. Send to Groq
         const chatCompletion = await groq.chat.completions.create({
             messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: (message || "Hello") + contractText }
+                { role: "user", content: (message || "Hello") + contextData }
             ],
             model: "llama-3.3-70b-versatile",
             max_completion_tokens: 1500, 
             temperature: 0.6,
         });
 
-        res.json({ 
-            response: chatCompletion.choices[0]?.message?.content, 
-            threadId: threadId || "groq_" + Date.now() 
-        });
+        res.json({ response: chatCompletion.choices[0]?.message?.content, threadId: threadId });
 
     } catch (err) {
-        console.error("Groq Error:", err);
-        res.status(400).json({ 
-            response: "**SYSTEM ERROR:** I tripped over a wire. Try shorter text or a different file.",
-            error: err.message 
-        });
+        res.status(400).json({ response: "**SYSTEM ERROR:** " + err.message, error: err.message });
     }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`ZaHouse Dual-Mode Engine Live on Port ${PORT}`));
+app.listen(PORT, () => console.log(`ZaHouse V3 (Live Internet) on Port ${PORT}`));
