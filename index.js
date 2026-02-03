@@ -81,8 +81,15 @@ app.post('/download-audit', async (req, res) => {
 });
 
 app.post('/audit', upload.single('file'), async (req, res) => {
-    let { message } = req.body;
+    let { message, email } = req.body;
     let isAudit = false, contextData = "";
+
+    // 🔥 THE GATE: If a file is sent but NO email is provided, STOP here.
+    if (req.file && (!email || email === 'null' || email === '')) {
+        if (req.file) fs.unlinkSync(req.file.path); // Clean up the temp file
+        return res.json({ response: "", requiresEmail: true }); // Trigger modal
+    }
+
     try {
         if (req.file) {
             isAudit = true;
@@ -90,7 +97,7 @@ app.post('/audit', upload.single('file'), async (req, res) => {
             const pdfData = await pdf(dataBuffer);
             contextData = `\n\n=== CONTRACT ===\n${pdfData.text.substring(0, 15000)}`;
             fs.unlinkSync(req.file.path);
-        } else if (message.toLowerCase().match(/news|latest|suno/)) {
+        } else if (message && message.toLowerCase().match(/news|latest|suno/)) {
             const webResult = await searchWeb(message);
             if (webResult) contextData = webResult;
         }
@@ -107,6 +114,5 @@ app.post('/audit', upload.single('file'), async (req, res) => {
         res.json({ response: chatCompletion.choices[0]?.message?.content, isAudit: isAudit });
     } catch (err) { res.status(400).json({ response: "System Error." }); }
 });
-
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`ZaHouse Strategist Active on ${PORT}`));
