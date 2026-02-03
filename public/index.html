@@ -2,69 +2,122 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ZaHouse | Forensic Alpha</title>
     <style>
         :root { --bg: #050505; --gold: #D4AF37; --white: #fff; --gray: #1a1a1a; }
-        body { background: var(--bg); color: var(--white); font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         
-        /* SIDEBAR */
-        .sidebar { width: 300px; background: #0a0a0a; border-right: 1px solid #222; padding: 40px; display: flex; flex-direction: column; justify-content: space-between; }
+        /* 🔥 MOBILE-FIRST FIX: Use dvh to avoid address bar cutoff */
+        body { 
+            background: var(--bg); 
+            color: var(--white); 
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+            display: flex; 
+            height: 100dvh; /* Dynamic Height for Mobile */
+            margin: 0; 
+            overflow: hidden; 
+        }
+        
+        /* SIDEBAR (Desktop Default) */
+        .sidebar { width: 300px; background: #0a0a0a; border-right: 1px solid #222; padding: 40px; display: flex; flex-direction: column; justify-content: space-between; flex-shrink: 0; }
         .logo { font-size: 24px; font-weight: 800; letter-spacing: -1px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
         .logo span { background: var(--gold); color: black; padding: 2px 8px; border-radius: 4px; font-size: 18px; }
+        .sidebar-desc { font-size: 13px; color: #888; line-height: 1.6; }
         
-        /* THE NEGOTIATE BUTTON */
+        /* NEGOTIATE BUTTON */
         .premium-btn { background: var(--gold); color: black; text-align: center; padding: 15px; font-weight: 800; text-transform: uppercase; border-radius: 4px; cursor: pointer; text-decoration: none; transition: transform 0.2s; display: block; border: none; width: 100%; font-size: 14px; }
         .premium-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
 
         /* CHAT AREA */
-        .main { flex: 1; display: flex; flex-direction: column; }
-        .chat { flex: 1; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-        .msg { padding: 25px; border-radius: 8px; max-width: 80%; line-height: 1.6; font-size: 15px; transition: opacity 0.3s; }
+        .main { flex: 1; display: flex; flex-direction: column; position: relative; width: 100%; }
+        .chat { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; scroll-behavior: smooth; }
+        .msg { padding: 20px; border-radius: 8px; max-width: 85%; line-height: 1.6; font-size: 15px; }
         .ai { background: #111; border-left: 3px solid var(--gold); color: #eee; }
         .user { background: #222; align-self: flex-end; color: #fff; }
         
-        /* TABLE STYLING */
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; background: #000; border: 1px solid #333; }
-        th { text-align: left; color: var(--gold); border-bottom: 1px solid var(--gold); padding: 12px; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
-        td { padding: 12px; border-bottom: 1px solid #222; color: #ccc; font-size: 14px; }
-        
         /* INPUT AREA */
-        .input-bar { padding: 30px; background: #000; display: flex; gap: 10px; border-top: 1px solid #222; align-items: center; }
-        input[type="text"] { flex: 1; background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 15px; border-radius: 8px; outline: none; font-size: 16px; }
+        .input-bar { 
+            padding: 20px; 
+            background: #000; 
+            display: flex; 
+            gap: 10px; 
+            border-top: 1px solid #222; 
+            align-items: center; 
+            /* iPhone Safe Area Fix */
+            padding-bottom: calc(20px + env(safe-area-inset-bottom)); 
+        }
+        input[type="text"] { flex: 1; background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 15px; border-radius: 8px; outline: none; font-size: 16px; -webkit-appearance: none; }
         .send-btn { background: #333; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .send-btn:hover { background: var(--gold); color: black; }
         
+        /* TABLES */
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; background: #000; border: 1px solid #333; font-size: 12px; }
+        th { text-align: left; color: var(--gold); border-bottom: 1px solid var(--gold); padding: 10px; }
+        td { padding: 10px; border-bottom: 1px solid #222; color: #ccc; }
+
         /* MODALS */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); justify-content: center; align-items: center; z-index: 1000; }
-        .modal-box { background: #111; border: 1px solid var(--gold); padding: 40px; width: 450px; text-align: center; border-radius: 8px; position: relative; }
+        .modal-box { background: #111; border: 1px solid var(--gold); padding: 30px; width: 90%; max-width: 450px; text-align: center; border-radius: 8px; position: relative; }
         .close-btn { position: absolute; top: 15px; right: 20px; color: #666; cursor: pointer; font-size: 24px; }
-        
-        /* FORM STYLES */
         .form-input { width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 15px; border-radius: 4px; box-sizing: border-box; }
-        .form-label { text-align: left; display: block; margin-bottom: 5px; color: var(--gold); font-size: 12px; font-weight: bold; uppercase; letter-spacing: 1px; }
+        .form-label { text-align: left; display: block; margin-bottom: 5px; color: var(--gold); font-size: 12px; font-weight: bold; text-transform: uppercase; }
         
-        .dl-btn { display: block; width: 100%; margin-top: 20px; background: transparent; border: 1px solid var(--gold); color: var(--gold); padding: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; border-radius: 4px; }
-        .dl-btn:hover { background: var(--gold); color: black; }
+        .dl-btn { display: block; width: 100%; margin-top: 20px; background: transparent; border: 1px solid var(--gold); color: var(--gold); padding: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; border-radius: 4px; }
+
+        /* 🔥 MOBILE RESPONSIVE RULES 🔥 */
+        @media (max-width: 768px) {
+            body { flex-direction: column; } /* Stack vertically */
+            
+            .sidebar { 
+                width: 100%; 
+                height: auto; 
+                padding: 15px 20px; 
+                flex-direction: row; 
+                align-items: center; 
+                border-right: none; 
+                border-bottom: 1px solid #222; 
+                box-sizing: border-box;
+            }
+            
+            /* Hide the text description on mobile to save space */
+            .sidebar-desc { display: none; }
+            
+            /* Make logo smaller */
+            .logo { font-size: 18px; margin-bottom: 0; }
+            
+            /* Button goes to the right */
+            .premium-btn { width: auto; padding: 8px 15px; font-size: 12px; margin-left: auto; }
+            
+            /* Chat adjustments */
+            .chat { padding: 15px; }
+            .msg { max-width: 90%; font-size: 14px; padding: 15px; }
+            
+            /* Input bar fixes */
+            .input-bar { padding: 15px; gap: 5px; }
+            input[type="text"] { padding: 12px; font-size: 14px; }
+            .send-btn { padding: 12px 15px; }
+        }
     </style>
 </head>
 <body>
     <div class="sidebar">
         <div>
             <div class="logo"><span>ZH</span> ZaHouse</div>
-            <div style="color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px;">Law Strategist</div>
-            <p style="font-size: 13px; color: #888; line-height: 1.6;">⚖️ Decode contracts with leverage logic.<br><br>📀 Masters vs. Publishing equity analysis.<br><br>🛡️ Protection against 360 deals.</p>
+            <div class="sidebar-desc">
+                <div style="color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; margin-top:10px;">Law Strategist</div>
+                <p>⚖️ Decode contracts.<br><br>📀 Equity analysis.<br><br>🛡️ 360 Protection.</p>
+            </div>
         </div>
-        <button onclick="openContactModal()" class="premium-btn">Negotiate My Deal</button>
+        <button onclick="openContactModal()" class="premium-btn">Negotiate Deal</button>
     </div>
 
     <div class="main">
         <div class="chat" id="chatBox">
-            <div class="msg ai">Yo, I'm the <strong>ZaHouse Music Law Strategist.</strong> Drop a contract or ask me about splits. I'm here to ensure you own the dirt, not just the bricks.</div>
+            <div class="msg ai">Yo, I'm the <strong>ZaHouse Music Law Strategist.</strong> Drop a contract or ask me about splits.</div>
         </div>
         <div class="input-bar">
             <input type="file" id="fileInput" style="display:none" onchange="handleFile()">
             <button onclick="document.getElementById('fileInput').click()" style="background:transparent; border:none; color:#666; font-size:24px; cursor:pointer;">📎</button>
-            <input type="text" id="userInput" placeholder="Upload contract or ask a question..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <input type="text" id="userInput" placeholder="Ask a question..." onkeypress="if(event.key==='Enter') sendMessage()">
             <button class="send-btn" onclick="sendMessage()">➔</button>
         </div>
     </div>
@@ -95,12 +148,12 @@
             
             <div style="display:flex; gap:10px;">
                 <div style="flex:1;">
-                    <label class="form-label">IPI # (Optional)</label>
-                    <input type="text" id="cIPI" class="form-input" placeholder="00123456789">
+                    <label class="form-label">IPI #</label>
+                    <input type="text" id="cIPI" class="form-input" placeholder="Optional">
                 </div>
                 <div style="flex:1;">
                     <label class="form-label">PRO</label>
-                    <input type="text" id="cPRO" class="form-input" placeholder="ASCAP/BMI/Etc">
+                    <input type="text" id="cPRO" class="form-input" placeholder="ASCAP/BMI">
                 </div>
             </div>
 
@@ -126,7 +179,8 @@
             if (storedFile) formData.append('file', storedFile);
             if (userEmail) formData.append('email', userEmail);
             
-            input.value = ''; chat.scrollTop = chat.scrollHeight;
+            input.value = ''; 
+            setTimeout(() => chat.scrollTop = chat.scrollHeight, 100); // Slight delay for mobile scroll
 
             try {
                 const res = await fetch('/audit', { method: 'POST', body: formData });
@@ -146,12 +200,11 @@
                     chat.innerHTML += `<button class="dl-btn" onclick="downloadPDF()">📄 DOWNLOAD OFFICIAL AUDIT PDF</button>`;
                 }
                 
-                chat.scrollTop = chat.scrollHeight; 
+                setTimeout(() => chat.scrollTop = chat.scrollHeight, 100);
                 storedFile = null;
             } catch (e) { alert("System Error: " + e.message); }
         }
 
-        // --- GATE LOGIC ---
         async function submitGateEmail() {
             const emailInput = document.getElementById('gateEmailField').value;
             if (!emailInput.includes('@')) return alert("Enter a valid industry email");
@@ -161,7 +214,6 @@
             sendMessage();
         }
 
-        // --- CONTACT FORM LOGIC ---
         function openContactModal() { document.getElementById('contactModal').style.display = 'flex'; }
         function closeContactModal() { document.getElementById('contactModal').style.display = 'none'; }
         
@@ -183,7 +235,7 @@
                 body: JSON.stringify({ name, email, artist, ipi, pro })
             });
 
-            alert("Request Received. A ZaHouse Strategist will contact you securely.");
+            alert("Request Received. Protocol Initiated.");
             closeContactModal();
             btn.innerText = "REQUEST REPRESENTATION";
         }
