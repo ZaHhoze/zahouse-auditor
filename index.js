@@ -138,12 +138,13 @@ app.post('/audit', upload.single('file'), async (req, res) => {
                 { role: "system", content: ZAHOUSE_SYSTEM_INSTRUCTIONS },
                 { role: "user", content: (message || "Hello") + contextData }
             ],
-            model: "mixtral-8x7b-32768", // Smarter logic for formatting
-            temperature: 0.5,             // Strict adherence to tone
-            max_tokens: 8000              // Allows long contract drafts
+            // 🔥 FIXED: Switch back to Llama 3.3 because Mixtral is dead
+            model: "llama-3.3-70b-versatile",
+            temperature: 0.5, // Keep low for good formatting
+            max_tokens: 8000
         });
 
-        // 🔥 THIS WAS MISSING IN YOUR CODE - IT SENDS THE ANSWER BACK 🔥
+        // 🔥 CRITICAL FIX: This sends the answer back to the frontend
         res.json({ response: chatCompletion.choices[0]?.message?.content, isAudit: isAudit });
 
     } catch (err) { 
