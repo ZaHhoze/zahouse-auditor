@@ -7,22 +7,23 @@ const path = require('path');
 const Groq = require("groq-sdk");
 const pdf = require('pdf-parse');
 const { jsPDF } = require("jspdf");
-const nodemailer = require('nodemailer'); // 🔥 REQUIRED FOR EMAILS
+const nodemailer = require('nodemailer'); 
 require("jspdf-autotable");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- CONFIGURATION ---
+// --- CONFIGURATION (DO NOT CHANGE THESE LINES) ---
+// These pull the actual values from your Railway Variables
 const GROQ_API_KEY = process.env.GROQ_API_KEY || process.env.ZAHOUSE_STRATEGIST;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
-const EMAIL_USER = process.env.dcrutch745@gmail.com; // Your Gmail Address
-const EMAIL_PASS = process.env.ekbl ltla qujm zdhk; // Your Gmail App Password
+const EMAIL_USER = process.env.EMAIL_USER; 
+const EMAIL_PASS = process.env.EMAIL_PASS;
 
 const groq = new Groq({ apiKey: GROQ_API_KEY });
 
-// --- YOUR EXACT CUSTOM INSTRUCTIONS ---
+// --- YOUR CUSTOM INSTRUCTIONS ---
 const ZAHOUSE_SYSTEM_INSTRUCTIONS = `
 ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a protector of creative equity, and a deal-maker. You are here to decode the complex music industry for artists and labels.
 
@@ -72,13 +73,15 @@ VERDICT: [Real Talk summary using metaphors]
 `;
 
 // --- EMAIL TRANSPORTER ---
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS
-    }
-});
+let transporter;
+if (EMAIL_USER && EMAIL_PASS) {
+    transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: EMAIL_USER, pass: EMAIL_PASS }
+    });
+} else {
+    console.log("⚠️ Email variables missing. Auto-reply disabled.");
+}
 
 // --- UTILITIES ---
 async function searchWeb(query) {
@@ -116,12 +119,14 @@ if (!fs.existsSync(INQUIRIES_FILE)) fs.writeFileSync(INQUIRIES_FILE, JSON.string
 // 1. SIMPLE EMAIL CAPTURE (The Gate)
 app.post('/capture-lead', (req, res) => {
     const { email, type } = req.body;
-    const leads = JSON.parse(fs.readFileSync(LEADS_FILE));
-    if (!leads.find(l => l.email === email)) {
-        leads.push({ email, type: type || 'GATE', date: new Date().toISOString() });
-        fs.writeFileSync(LEADS_FILE, JSON.stringify(leads));
-    }
-    res.json({ success: true });
+    try {
+        const leads = JSON.parse(fs.readFileSync(LEADS_FILE));
+        if (!leads.find(l => l.email === email)) {
+            leads.push({ email, type: type || 'GATE', date: new Date().toISOString() });
+            fs.writeFileSync(LEADS_FILE, JSON.stringify(leads));
+        }
+        res.json({ success: true });
+    } catch(e) { res.json({ success: false }); }
 });
 
 // 2. DETAILED NEGOTIATION FORM + AUTO-REPLY EMAIL
@@ -134,7 +139,7 @@ app.post('/submit-inquiry', async (req, res) => {
     fs.writeFileSync(INQUIRIES_FILE, JSON.stringify(inquiries));
 
     // 🔥 SEND AUTO-REPLY EMAIL 🔥
-    if (EMAIL_USER && EMAIL_PASS) {
+    if (transporter) {
         const mailOptions = {
             from: `"ZaHouse Protocol" <${EMAIL_USER}>`,
             to: email,
@@ -197,9 +202,11 @@ app.get('/admin/leads', (req, res) => {
 });
 
 app.post('/download-audit', async (req, res) => {
-    const pdfBuffer = await generateAuditPDF(req.body);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.send(pdfBuffer);
+    try {
+        const pdfBuffer = await generateAuditPDF(req.body);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.send(pdfBuffer);
+    } catch(e) { res.status(500).send("PDF Error"); }
 });
 
 // 🔥 THE REVENUE GATE ROUTE 🔥
@@ -229,7 +236,6 @@ app.post('/audit', upload.single('file'), async (req, res) => {
                 { role: "system", content: ZAHOUSE_SYSTEM_INSTRUCTIONS },
                 { role: "user", content: (message || "Hello") + contextData }
             ],
-            // 🔥 USING LLAMA 3.3 (Active)
             model: "llama-3.3-70b-versatile",
             temperature: 0.5,
             max_tokens: 8000
