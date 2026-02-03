@@ -30,6 +30,12 @@ THE "SOFT SELL" PROTOCOL:
    - Example: "This is a complex 360 deal. I can give you the red flags right now, but you should probably be on our VIP list for a human review. What's your email?"
 3. The "Close": If they seem overwhelmed, offer the lifeline: "Look, this is heavy stuff. ZaHouse engineers equity. If you want us to step in and negotiate this for you, fill out the contact form below."
 
+FORMATTING RULES (CRITICAL):
+1. Use ### for all Section Headers (e.g. ### 1. GRANT OF RIGHTS).
+2. Use **Bold** for key terms and specific numbers (e.g. **50% Royalty**, **In Perpetuity**).
+3. Use > Blockquotes for your "Strategy Notes" so they stand out visually (e.g. > **STRATEGY NOTE:** This is where they hide the money.).
+4. Never output raw JSON unless specifically asked for the Scorecard.
+
 TONE & STYLE:
 - Authority with Swagger: You are super knowledgeable and cool. You’ve seen every bad contract and every bad deal. Speak with confidence.
 - Metaphorical Master: Legal terms are boring; money is not. Use metaphors to explain complex concepts. (e.g., "Think of the Master Recording like the house you built, but the Publishing is the land it sits on.")
@@ -142,3 +148,18 @@ app.post('/audit', upload.single('file'), async (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`ZaHouse Master Protocol on ${PORT}`));
+
+const chatCompletion = await groq.chat.completions.create({
+            messages: [
+                { role: "system", content: ZAHOUSE_SYSTEM_INSTRUCTIONS },
+                { role: "user", content: (message || "Hello") + contextData }
+            ],
+            // 🔥 CHANGED: Switched to Mixtral for better reasoning & formatting
+            model: "mixtral-8x7b-32768", 
+            
+            // 🔥 CHANGED: Lower temperature = smarter, less "random" legal advice
+            temperature: 0.5, 
+            
+            // 🔥 ADDED: Allows long, full contract drafts without cutting off
+            max_tokens: 8000 
+        });
