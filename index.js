@@ -12,7 +12,6 @@ app.use(cors());
 app.use(express.json());
 
 // --- CONFIGURATION ---
-// Automatically looks for GROQ_API_KEY or your ZAHOUSE_STRATEGIST variable
 const GROQ_API_KEY = process.env.GROQ_API_KEY || process.env.ZAHOUSE_STRATEGIST;
 const groq = new Groq({ apiKey: GROQ_API_KEY });
 
@@ -25,14 +24,13 @@ async function loadBrain() {
         fs.mkdirSync(brainDir);
         return;
     }
-
     const files = fs.readdirSync(brainDir);
     for (const file of files) {
         if (file.toLowerCase().endsWith('.pdf')) {
             console.log(`🧠 Memorizing: ${file}...`);
             const dataBuffer = fs.readFileSync(path.join(brainDir, file));
             const data = await pdf(dataBuffer);
-            // TRUNCATE BRAIN: Only take the core rules to save room for the audit
+            // TRUNCATE: Only take core rules to save memory
             PERMANENT_BRAIN += `\n\n--- SOURCE: ${file} ---\n${data.text.substring(0, 10000)}`;
         }
     }
@@ -52,53 +50,76 @@ app.get('/', (req, res) => {
 });
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- THE LOGIC ENGINE ---
+// --- THE LOGIC ENGINE (DUAL MODE) ---
 app.post('/audit', upload.single('file'), async (req, res) => {
     let { message, threadId } = req.body;
     let contractText = "";
+    let systemPrompt = "";
 
     try {
-        // 1. Read and SHRED the CONTRACT
+        // === MODE SELECTION ===
+        
         if (req.file) {
+            // 🚨 MODE A: AUDIT (User uploaded a PDF)
+            // We force the Scorecard Format
             const dataBuffer = fs.readFileSync(req.file.path);
             const pdfData = await pdf(dataBuffer);
-            // TRUNCATE: Only take the first 12,000 chars to avoid 400 Errors
             contractText = `\n\n=== CONTRACT TO AUDIT ===\n${pdfData.text.substring(0, 12000)}`; 
-            fs.unlinkSync(req.file.path); 
+            fs.unlinkSync(req.file.path);
+
+            systemPrompt = `
+            ROLE: ZaHouse Forensic IP Architect.
+            TONE: "Suits meets The Streets". High-leverage, architectural metaphors.
+            
+            YOUR KNOWLEDGE BASE:
+            ${PERMANENT_BRAIN.substring(0, 15000)}
+            
+            TASK: Audit the attached contract.
+            
+            OUTPUT FORMAT (MANDATORY FOR AUDITS):
+            # 🚨 DEAL SCORE: [0-100]/100
+            ## ⚖️ THE VERDICT
+            (Summary of equity vs employment status)
+            ## 📊 RISK ANALYSIS CHART
+            | Category | Rating | Status |
+            | :--- | :--- | :--- |
+            | **Masters Ownership** | [0-10]/10 | [Safe/Trap] |
+            | **Royalty Rate** | [0-10]/10 | [Good/Bad] |
+            | **360 Clauses** | [0-10]/10 | [Clean/Toxic] |
+            | **Term Length** | [0-10]/10 | [Fair/Slave] |
+            ## 🚩 RED FLAGS
+            * List the traps found.
+            `;
+            
+        } else {
+            // 🗣️ MODE B: CHAT (User just asked a question)
+            // We use a Conversational Format (No Scorecard)
+            
+            systemPrompt = `
+            ROLE: ZaHouse Music Law Strategist.
+            TONE: 'Suits meets The Streets'. Professional, swagger, metaphors.
+            GOAL: Answer the artist's question using your legal knowledge. Do NOT generate a scorecard unless asked.
+
+            YOUR KNOWLEDGE BASE (LEGAL BIBLE):
+            ${PERMANENT_BRAIN.substring(0, 15000)}
+
+            KEY PROTOCOLS:
+            1. AI COPYRIGHT: USCO requires human authorship. You can copyright lyrics/composition, but not the AI audio. Disclose usage honestly.
+            2. STREAMING: Demand 20%+.
+            3. MASTERS: If they own it, you're an employee.
+            4. 360 DEALS: "You don't eat off plates you didn't cook on."
+            `;
         }
 
-        // 2. The Forensic Alpha Prompt
-        const systemPrompt = `
-        ROLE: ZaHouse Forensic IP Architect. You decode "Engineered Equity".
-        TONE: "Suits meets The Streets". High-leverage, architectural metaphors.
-        
-        YOUR PERMANENT KNOWLEDGE:
-        ${PERMANENT_BRAIN.substring(0, 15000)}
-        
-        OUTPUT FORMAT (MANDATORY):
-        # 🚨 DEAL SCORE: [0-100]/100
-        ## ⚖️ THE VERDICT
-        (Summary of equity vs employment status)
-        ## 📊 RISK ANALYSIS CHART
-        | Category | Rating | Status |
-        | :--- | :--- | :--- |
-        | **Masters Ownership** | [0-10]/10 | [Safe/Trap] |
-        | **Royalty Rate** | [0-10]/10 | [Good/Bad] |
-        | **360 Clauses** | [0-10]/10 | [Clean/Toxic] |
-        | **Term Length** | [0-10]/10 | [Fair/Slave] |
-        ## 🚩 RED FLAGS
-        * List the traps found in the text.
-        `;
-
-        // 3. Request Completion
+        // 3. Send to Groq
         const chatCompletion = await groq.chat.completions.create({
             messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: (message || "Analyze this deal.") + contractText }
+                { role: "user", content: (message || "Hello") + contractText }
             ],
             model: "llama-3.3-70b-versatile",
-            max_completion_tokens: 1500, // Safety cap to stay under minute limits
-            temperature: 0.5,
+            max_completion_tokens: 1500, 
+            temperature: 0.6,
         });
 
         res.json({ 
@@ -109,11 +130,11 @@ app.post('/audit', upload.single('file'), async (req, res) => {
     } catch (err) {
         console.error("Groq Error:", err);
         res.status(400).json({ 
-            response: "📏 **LIMIT REACHED:** This contract is too massive for the Free Tier. I've analyzed the first 20 pages—check the results or try a shorter excerpt.",
+            response: "**SYSTEM ERROR:** I tripped over a wire. Try shorter text or a different file.",
             error: err.message 
         });
     }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`ZaHouse V2.1 Stabilized on Port ${PORT}`));
+app.listen(PORT, () => console.log(`ZaHouse Dual-Mode Engine Live on Port ${PORT}`));
