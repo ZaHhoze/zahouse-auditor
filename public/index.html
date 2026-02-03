@@ -2,397 +2,82 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ZaHouse | Forensic Alpha</title>
     <style>
-        /* --- PREMIUM THEME VARIABLES --- */
-        :root {
-            --bg-color: #050505;
-            --sidebar-bg: #0a0a0a;
-            --gold: #D4AF37;
-            --gold-hover: #b5952f;
-            --text-white: #ffffff;
-            --text-gray: #888888;
-            --input-bg: #1a1a1a;
-            --msg-user: #2d2d2d;
-            --msg-ai: #111111;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg-color);
-            color: var(--text-white);
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* --- SIDEBAR (THE BRANDING) --- */
-        .sidebar {
-            width: 300px;
-            background-color: var(--sidebar-bg);
-            border-right: 1px solid #222;
-            padding: 40px 30px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .brand {
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: -1px;
-            margin-bottom: 5px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .brand-icon { background: var(--gold); color: black; padding: 2px 8px; border-radius: 4px; font-size: 20px; }
-        .sub-brand { color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 50px; }
-
-        .features { list-style: none; padding: 0; }
-        .features li { margin-bottom: 25px; font-size: 14px; color: #ccc; line-height: 1.5; display: flex; align-items: flex-start; }
-        .features li::before { content: '⚖️'; margin-right: 10px; font-size: 16px; }
-        .features li:nth-child(2)::before { content: '📀'; }
-        .features li:nth-child(3)::before { content: '🛡️'; }
-
-        .premium-btn {
-            background-color: var(--gold);
-            color: #000;
-            font-weight: 800;
-            text-transform: uppercase;
-            padding: 15px;
-            text-align: center;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            letter-spacing: 1px;
-            transition: all 0.3s ease;
-            text-decoration: none;
-        }
-        .premium-btn:hover { background-color: var(--gold-hover); transform: translateY(-2px); }
-
-        /* --- MAIN CHAT AREA --- */
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 0;
-            position: relative;
-        }
-
-        .chat-container {
-            flex: 1;
-            padding: 40px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 30px;
-        }
-
-        /* MESSAGES & AVATARS */
-        .msg-row { display: flex; gap: 15px; margin-bottom: 10px; }
-        .msg-row.user { flex-direction: row-reverse; }
-
-        .avatar {
-            width: 40px; height: 40px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: bold; font-size: 14px; flex-shrink: 0;
-        }
-        .avatar.zh { background: var(--gold); color: black; }
-        .avatar.you { background: #333; color: white; border: 1px solid #555; }
-
-        .message {
-            max-width: 70%;
-            padding: 20px;
-            border-radius: 12px;
-            line-height: 1.6;
-            font-size: 15px;
-            position: relative;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-        .message.user { background-color: var(--msg-user); color: white; border-top-right-radius: 2px; }
-        .message.ai { background-color: var(--msg-ai); color: #e0e0e0; border-top-left-radius: 2px; border: 1px solid #222; }
-        
-        .message strong { color: var(--gold); }
-        h3, h4 { margin: 10px 0 5px 0; color: var(--gold); }
-
-        /* INPUT BAR */
-        .input-wrapper {
-            padding: 30px 40px;
-            background: linear-gradient(to top, var(--bg-color) 80%, transparent);
-        }
-        .input-box {
-            background: var(--input-bg);
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 5px;
-            display: flex;
-            align-items: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .attach-btn {
-            background: transparent; border: none; font-size: 20px; cursor: pointer; padding: 15px;
-            color: #666; transition: color 0.3s;
-        }
-        .attach-btn:hover { color: var(--gold); }
-        
-        input[type="text"] {
-            flex: 1; background: transparent; border: none; color: white;
-            font-size: 16px; padding: 15px; outline: none;
-        }
-        .send-btn {
-            background: #333; color: white; border: none; padding: 12px 20px;
-            border-radius: 6px; cursor: pointer; font-weight: bold; margin-right: 5px;
-        }
-        .send-btn:hover { background: var(--gold); color: black; }
-
-        /* --- V5 FEATURES: MODAL & DOWNLOAD BUTTON --- */
-        
-        /* The Email Gate Modal */
-        .modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); backdrop-filter: blur(5px);
-            justify-content: center; align-items: center; z-index: 999;
-        }
-        .modal-box {
-            background: #111; border: 1px solid var(--gold); padding: 50px; width: 450px;
-            text-align: center; border-radius: 8px; box-shadow: 0 0 50px rgba(212, 175, 55, 0.15);
-        }
-        .modal-box h2 { color: var(--gold); font-size: 22px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
-        .modal-box p { color: #888; font-size: 14px; margin-bottom: 30px; line-height: 1.5; }
-        .email-field {
-            width: 85%; padding: 15px; background: #222; border: 1px solid #444; color: white;
-            border-radius: 4px; margin-bottom: 25px; outline: none; text-align: center; font-size: 16px;
-        }
-        .email-field:focus { border-color: var(--gold); }
-        
-        /* The Download Button (In Chat) */
-        .download-action-btn {
-            display: block; width: 100%; margin-top: 20px;
-            background: transparent; border: 1px solid var(--gold); color: var(--gold);
-            padding: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase;
-            font-size: 12px; letter-spacing: 2px; transition: all 0.3s;
-            border-radius: 4px;
-        }
-        .download-action-btn:hover { background: var(--gold); color: black; box-shadow: 0 0 15px rgba(212, 175, 55, 0.4); }
-
+        :root { --bg: #050505; --gold: #D4AF37; --white: #fff; --gray: #1a1a1a; }
+        body { background: var(--bg); color: var(--white); font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        .sidebar { width: 300px; background: #0a0a0a; border-right: 1px solid #222; padding: 40px; }
+        .main { flex: 1; display: flex; flex-direction: column; }
+        .chat { flex: 1; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+        .msg { padding: 20px; border-radius: 12px; max-width: 80%; line-height: 1.6; }
+        .ai { background: #111; border-left: 3px solid var(--gold); }
+        .user { background: #333; align-self: flex-end; }
+        .input-bar { padding: 30px; background: #000; display: flex; gap: 10px; }
+        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 15px; border-radius: 8px; outline: none; }
+        button { background: var(--gold); border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 4px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: #111; border: 1px solid var(--gold); padding: 40px; width: 400px; text-align: center; }
+        .dl-btn { background: transparent; border: 1px solid var(--gold); color: var(--gold); width: 100%; margin-top: 15px; padding: 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
     </style>
 </head>
 <body>
-
     <div class="sidebar">
-        <div>
-            <div class="brand"><span class="brand-icon">ZH</span> ZaHouse</div>
-            <div class="sub-brand">Law Strategist</div>
-            
-            <ul class="features">
-                <li>Decode contracts with leverage logic.</li>
-                <li>Masters vs. Publishing equity analysis.</li>
-                <li>Protection against 360 deals & AI traps.</li>
-            </ul>
-        </div>
-        
-        <div class="premium-btn">Negotiate My Deal</div>
+        <h2 style="color:var(--gold)">ZH ZaHouse</h2>
+        <p style="font-size:12px; color:#888;">STRATEGIST PROTOCOL V5.5</p>
     </div>
-
-    <div class="main-content">
-        <div class="chat-container" id="chatBox">
-            <div class="msg-row ai">
-                <div class="avatar zh">ZH</div>
-                <div class="message ai">
-                    <strong>SYSTEM ONLINE.</strong><br><br>
-                    I am the <strong>Yo, I'm the ZaHouse Music Law Strategist</strong> Drop a contract PDF here to audit your leverage, or ask me about splits. I'm here to ensure you own the dirt, not just the bricks.
-                </div>
-            </div>
+    <div class="main">
+        <div class="chat" id="chatBox">
+            <div class="msg ai">Yo, I'm the <strong>ZaHouse Music Law Strategist.</strong> Drop a contract or ask me about splits. I'm here to ensure you own the dirt, not just the bricks.</div>
         </div>
-
-        <div class="input-wrapper">
-            <div class="input-box">
-                <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect()">
-                <button class="attach-btn" onclick="document.getElementById('fileInput').click()">📎</button>
-                <input type="text" id="userInput" placeholder="Upload contract or ask a question..." onkeypress="if(event.key==='Enter') sendMessage()">
-                <button class="send-btn" onclick="sendMessage()">➔</button>
-            </div>
+        <div class="input-bar">
+            <input type="file" id="fileInput" style="display:none" onchange="handleFile()">
+            <button onclick="document.getElementById('fileInput').click()">📎</button>
+            <input type="text" id="userInput" placeholder="Upload contract..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <button onclick="sendMessage()">➔</button>
         </div>
     </div>
-
-    <div id="emailModal" class="modal-overlay">
+    <div id="emailModal" class="modal">
         <div class="modal-box">
-            <h2>🔒 Protocol Locked</h2>
-            <p>Forensic Alpha reports are reserved for Protocol Members.<br>Enter your email to unlock this audit instantly.</p>
-            <input type="email" id="emailField" class="email-field" placeholder="artist@example.com">
-            <div class="premium-btn" onclick="submitEmail()">Unlock Full Report</div>
+            <h2 style="color:var(--gold)">🔒 PROTOCOL LOCKED</h2>
+            <p>Forensic Alpha reports are reserved for Protocol Members.</p>
+            <input type="email" id="emailField" placeholder="artist@example.com" style="width:90%; padding:10px; margin-bottom:20px;">
+            <button onclick="submitEmail()" style="width:100%">UNLOCK REPORT</button>
         </div>
     </div>
-
     <script>
-        let storedFile = null;
-        let userEmail = null;
-        let lastAuditData = null;
-
-        function handleFileSelect() {
-            const input = document.getElementById('fileInput');
-            if (input.files.length > 0) {
-                storedFile = input.files[0];
-                document.getElementById('userInput').value = `[Attached: ${storedFile.name}]`;
-                document.getElementById('userInput').focus();
-            }
-        }
-
+        let storedFile = null, userEmail = null, lastScore = 0, lastVerdict = "";
+        function handleFile() { storedFile = document.getElementById('fileInput').files[0]; document.getElementById('userInput').value = `Attached: ${storedFile.name}`; }
         async function sendMessage() {
-            const input = document.getElementById('userInput');
-            const chatBox = document.getElementById('chatBox');
-            const message = input.value.trim();
-
-            if (!message && !storedFile) return;
-
-            // 1. Show User Message
-            chatBox.innerHTML += `
-                <div class="msg-row user">
-                    <div class="avatar you">YOU</div>
-                    <div class="message user">${message}</div>
-                </div>`;
-            
-            input.value = '';
-            chatBox.scrollTop = chatBox.scrollHeight;
-
-            // 2. Show Loading Bubble
-            const loadingId = 'load-' + Date.now();
-            chatBox.innerHTML += `
-                <div class="msg-row ai" id="${loadingId}">
-                    <div class="avatar zh">ZH</div>
-                    <div class="message ai">Running Forensic Analysis...</div>
-                </div>`;
-            chatBox.scrollTop = chatBox.scrollHeight;
-
-            // 3. Prepare Payload
-            const formData = new FormData();
-            formData.append('message', message);
+            const input = document.getElementById('userInput'), chat = document.getElementById('chatBox');
+            if (!input.value && !storedFile) return;
+            chat.innerHTML += `<div class="msg user">${input.value}</div>`;
+            const formData = new FormData(); formData.append('message', input.value);
             if (storedFile) formData.append('file', storedFile);
             if (userEmail) formData.append('email', userEmail);
-
-            try {
-                // 4. Send to Server
-                const res = await fetch('/audit', { method: 'POST', body: formData });
-                const data = await res.json();
-                
-                document.getElementById(loadingId).remove();
-
-                // 5. CHECK: Email Gate?
-                if (data.requiresEmail) {
-                    document.getElementById('emailModal').style.display = 'flex';
-                    // Optional: Add a small note in chat too
-                    chatBox.innerHTML += `
-                        <div class="msg-row ai">
-                            <div class="avatar zh">ZH</div>
-                            <div class="message ai" style="border-left: 3px solid red;">🔒 <strong>ACCESS LOCKED.</strong> Awaiting credentials.</div>
-                        </div>`;
-                    return;
-                }
-
-                // 6. Success - Display AI Response
-                chatBox.innerHTML += `
-                    <div class="msg-row ai">
-                        <div class="avatar zh">ZH</div>
-                        <div class="message ai">${formatResponse(data.response)}</div>
-                    </div>`;
-                
-                // 7. Check for Scorecard to show Download Button
-                if (data.response.includes("DEAL SCORE:")) {
-                    prepareDownload(data.response);
-                    storedFile = null; // Clear file after success
-                }
-                
-                chatBox.scrollTop = chatBox.scrollHeight;
-
-            } catch (err) {
-                document.getElementById(loadingId).innerText = "System Error: " + err.message;
+            input.value = ''; chat.scrollTop = chat.scrollHeight;
+            const res = await fetch('/audit', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.requiresEmail) { document.getElementById('emailModal').style.display='flex'; return; }
+            chat.innerHTML += `<div class="msg ai">${data.response.replace(/\n/g, '<br>')}</div>`;
+            if (data.response.includes("DEAL SCORE:")) {
+                const match = data.response.match(/DEAL SCORE:.*?(\d+)\/100/);
+                lastScore = match ? match[1] : 0; lastVerdict = data.response;
+                chat.innerHTML += `<button class="dl-btn" onclick="downloadPDF()">📄 DOWNLOAD OFFICIAL AUDIT PDF</button>`;
             }
+            chat.scrollTop = chat.scrollHeight; storedFile = null;
         }
-
         async function submitEmail() {
-            const email = document.getElementById('emailField').value;
-            if (!email.includes('@')) return alert("Invalid Email");
-
-            userEmail = email;
-            document.getElementById('emailModal').style.display = 'none';
-
-            // Send lead to server
-            await fetch('/capture-lead', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ email })
-            });
-
-            // Retry the message automatically
+            userEmail = document.getElementById('emailField').value;
+            if (!userEmail.includes('@')) return alert("Invalid email");
+            document.getElementById('emailModal').style.display='none';
+            await fetch('/capture-lead', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email: userEmail }) });
             sendMessage();
         }
-
-        function prepareDownload(text) {
-            // Parse basic info for the PDF
-            const scoreMatch = text.match(/DEAL SCORE:.*?(\d+)\/100/);
-            const score = scoreMatch ? scoreMatch[1] : "N/A";
-
-            lastAuditData = {
-                score: score,
-                verdict: text.substring(0, 600), // Grab summary
-                riskTable: [['Analysis', 'See Full Text', 'Review']] // Simplified
-            };
-
-            // Inject the Gold Download Button into the LAST message
-            const messages = document.querySelectorAll('.message.ai');
-            const lastMsg = messages[messages.length - 1];
-            
-            const btnHtml = `<button class="download-action-btn" onclick="downloadPDF(this)">📄 Download Official Forensic PDF</button>`;
-            lastMsg.insertAdjacentHTML('beforeend', btnHtml);
-        }
-
-        async function downloadPDF(btn) {
-            if (!lastAuditData) return alert("No audit data found.");
-
-            const originalText = btn.innerText;
-            btn.innerText = "⏳ Generating Report...";
-            
-            try {
-                const res = await fetch('/download-audit', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(lastAuditData)
-                });
-
-                if (!res.ok) throw new Error("Server missing PDF tools");
-
-                const blob = await res.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = "ZaHouse_Forensic_Audit.pdf";
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                btn.innerText = "✅ Report Downloaded";
-                setTimeout(() => btn.innerText = originalText, 3000);
-
-            } catch (err) {
-                alert("Error: " + err.message + ". The server needs the PDF tools installed.");
-                btn.innerText = "⚠️ Download Failed";
-            }
-        }
-
-        // Helper to format Markdown to HTML
-        function formatResponse(text) {
-            return text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
-                .replace(/^# (.*$)/gim, '<h3>$1</h3>') // Headers
-                .replace(/^## (.*$)/gim, '<h4>$1</h4>') // Subheaders
-                .replace(/\n/g, '<br>') // Line breaks
-                .replace(/\|(.*)\|/g, function(match) { // Simple Table highlight
-                     return `<span style="font-family: monospace; background: #222; padding: 2px;">${match}</span>`;
-                });
+        async function downloadPDF() {
+            const res = await fetch('/download-audit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ score: lastScore, verdict: lastVerdict }) });
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = "ZaHouse_Forensic_Audit.pdf"; a.click();
         }
     </script>
 </body>

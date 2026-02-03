@@ -6,6 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const Groq = require("groq-sdk");
 const pdf = require('pdf-parse');
+const { jsPDF } = require("jspdf");
+require("jspdf-autotable");
 
 const app = express();
 app.use(cors());
@@ -16,113 +18,111 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY || process.env.ZAHOUSE_STRATEGIST;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 const groq = new Groq({ apiKey: GROQ_API_KEY });
 
-// --- THE STRATEGIST PROTOCOL (Injected from Google AI Studio) ---
+// --- THE STRATEGIST PROTOCOL (Google AI Studio Certified) ---
 const ZAHOUSE_SYSTEM_INSTRUCTIONS = `
-ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a protector of creative equity, and a deal-maker. You are here to decode the complex music industry for artists and labels.
-
-GOAL: Provide high-value legal and strategic guidance. If a user provides a contract (via text or PDF), you MUST generate a "Deal Scorecard".
+ROLE: You are the ZaHouse Music Law Strategist—an industry insider and protector of creative equity. 
 
 DEAL SCORECARD PROTOCOL:
-Evaluate the deal on these 5 metrics (0-10 scale):
-1. Ownership Equity: Does the artist own their masters?
-2. Recoupment: Are terms predatory (e.g., 100% recoupment)?
-3. Creative Control: Does the artist keep the final say?
-4. Duration/Term: Is the contract too long?
-5. Financial Transparency: Right to audit, clear accounting.
+If a contract is provided, you MUST evaluate it on these 5 metrics (0-10 scale):
+1. Ownership Equity: Masters ownership.
+2. Recoupment: Predatory terms.
+3. Creative Control: Final say.
+4. Duration/Term: Length of deal.
+5. Financial Transparency: Audit rights.
 
 TONE & STYLE:
-- Professional swagger. Use metaphors like "bricks vs. dirt".
-- Value First: Answer the legal question immediately.
-- The "Soft Sell": Pivot to relationship building and offer ZaHouse professional negotiation for complex cases.
-- CATCHPHRASE: Ensure they "own the dirt, not just the bricks."
-
-DISCLAIMER: Always end with: "Strategic guidance only. Not binding legal advice."
+- Professional swagger; use "bricks vs. dirt" metaphors.
+- Value First: Answer the legal query immediately.
+- The "Soft Sell": Offer professional negotiation for low scores.
+- IMPORTANT: Always start with "DEAL SCORE: [Number]/100" when auditing.
 `;
 
-// --- SEARCH TOOL (The Eyes) ---
+// --- PDF GENERATOR ---
+async function generateAuditPDF(data) {
+    const doc = new jsPDF();
+    const gold = [212, 175, 55], charcoal = [30, 30, 30]; 
+    doc.setFillColor(...charcoal); doc.rect(0, 0, 210, 45, 'F');
+    doc.setFontSize(22); doc.setTextColor(...gold); doc.text("ZH", 20, 25);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.text("ZaHouse Forensic Audit", 45, 25);
+    doc.setFillColor(245, 245, 245); doc.rect(15, 55, 180, 20, 'F');
+    doc.setFontSize(16); doc.setTextColor(...charcoal); doc.text(`FINAL DEAL SCORE: ${data.score}/100`, 20, 68);
+    doc.setFontSize(12); doc.text("THE VERDICT", 15, 85);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+    doc.text(doc.splitTextToSize(data.verdict || "Analysis complete.", 180), 15, 92);
+    return Buffer.from(doc.output('arraybuffer'));
+}
+
+// --- SEARCH TOOL ---
 async function searchWeb(query) {
     if (!TAVILY_API_KEY) return null;
     try {
         const response = await fetch("https://api.tavily.com/search", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                api_key: TAVILY_API_KEY,
-                query: query,
-                search_depth: "basic",
-                include_answer: true,
-                max_results: 3
-            })
+            body: JSON.stringify({ api_key: TAVILY_API_KEY, query, search_depth: "basic", include_answer: true, max_results: 3 })
         });
         const data = await response.json();
         return `\n\n=== 🌍 LIVE STREET INTEL ===\n${data.answer}`;
-    } catch (err) {
-        return null;
-    }
+    } catch (err) { return null; }
 }
 
-// --- KNOWLEDGE BASE ---
-let PERMANENT_BRAIN = "";
-async function loadBrain() {
-    const brainDir = path.join(__dirname, 'knowledge_base');
-    if (!fs.existsSync(brainDir)) { fs.mkdirSync(brainDir); return; }
-    const files = fs.readdirSync(brainDir);
-    for (const file of files) {
-        if (file.toLowerCase().endsWith('.pdf')) {
-            const dataBuffer = fs.readFileSync(path.join(brainDir, file));
-            const data = await pdf(dataBuffer);
-            PERMANENT_BRAIN += `\n\nSOURCE: ${file}\n${data.text.substring(0, 8000)}`;
-        }
-    }
-    console.log("✅ Strategist Brain Loaded");
-}
-loadBrain();
-
+// --- FILE & LEAD SETUP ---
 const upload = multer({ dest: 'uploads/' });
+const LEADS_FILE = path.join(__dirname, 'leads.json');
+if (!fs.existsSync(LEADS_FILE)) fs.writeFileSync(LEADS_FILE, JSON.stringify([]));
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// --- ROUTES ---
+app.post('/capture-lead', (req, res) => {
+    const { email } = req.body;
+    const leads = JSON.parse(fs.readFileSync(LEADS_FILE));
+    if (!leads.find(l => l.email === email)) {
+        leads.push({ email, date: new Date().toISOString() });
+        fs.writeFileSync(LEADS_FILE, JSON.stringify(leads));
+    }
+    res.json({ success: true });
 });
 
-// --- THE MASTER ENGINE ---
+app.post('/download-audit', async (req, res) => {
+    try {
+        const pdfBuffer = await generateAuditPDF(req.body);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.send(pdfBuffer);
+    } catch (err) { res.status(500).send("PDF Error"); }
+});
+
 app.post('/audit', upload.single('file'), async (req, res) => {
-    let { message } = req.body;
+    let { message, email } = req.body;
     let contextData = "";
+
+    if (req.file && !email) {
+        if (req.file) fs.unlinkSync(req.file.path);
+        return res.json({ response: "", requiresEmail: true });
+    }
 
     try {
         if (req.file) {
-            // AUDIT MODE
             const dataBuffer = fs.readFileSync(req.file.path);
             const pdfData = await pdf(dataBuffer);
             contextData = `\n\n=== CONTRACT TO AUDIT ===\n${pdfData.text.substring(0, 15000)}`;
             fs.unlinkSync(req.file.path);
-        } else {
-            // CHAT MODE + LIVE SEARCH
-            const lowerMsg = (message || "").toLowerCase();
-            if (lowerMsg.includes("news") || lowerMsg.includes("latest") || lowerMsg.includes("suno") || lowerMsg.includes("update")) {
-                const webResult = await searchWeb(message);
-                if (webResult) contextData = webResult;
-            }
+        } else if (message.toLowerCase().match(/news|latest|suno/)) {
+            const webResult = await searchWeb(message);
+            if (webResult) contextData = webResult;
         }
 
         const chatCompletion = await groq.chat.completions.create({
             messages: [
-                { role: "system", content: ZAHOUSE_SYSTEM_INSTRUCTIONS + "\n\nKNOWLEDGE BASE DATA:\n" + PERMANENT_BRAIN.substring(0, 8000) },
+                { role: "system", content: ZAHOUSE_SYSTEM_INSTRUCTIONS },
                 { role: "user", content: (message || "Hello") + contextData }
             ],
             model: "llama-3.3-70b-versatile",
-            max_completion_tokens: 1500,
-            temperature: 0.7, // Balances accuracy with persona swagger
+            temperature: 0.7,
         });
 
         res.json({ response: chatCompletion.choices[0]?.message?.content });
-
-    } catch (err) {
-        console.error("Groq Error:", err);
-        res.status(400).json({ response: "**System Error:** " + err.message });
-    }
+    } catch (err) { res.status(400).json({ response: "System Error." }); }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`ZaHouse V5.3 (Strategist Protocol) on Port ${PORT}`));
+app.listen(PORT, () => console.log(`ZaHouse V5.5 (Strategist + Business) on ${PORT}`));
