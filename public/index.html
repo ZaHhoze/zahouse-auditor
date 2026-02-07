@@ -3,267 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ZaHouse | Forensic Alpha</title>
+    <title>ZaHouse Strategy</title>
     <style>
-        :root { --bg: #050505; --gold: #D4AF37; --white: #fff; --gray: #1a1a1a; }
-        
-        /* 🔥 MOBILE-FIRST FIX: Use dvh to avoid address bar cutoff */
-        body { 
-            background: var(--bg); 
-            color: var(--white); 
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
-            display: flex; 
-            height: 100dvh; /* Dynamic Height for Mobile */
-            margin: 0; 
-            overflow: hidden; 
+        /* --- RESET --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body {
+            background-color: #050505;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            height: 100dvh; /* Dynamic Viewport Height for Mobile */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Prevents whole page scroll */
         }
-        
-        /* SIDEBAR (Desktop Default) */
-        .sidebar { width: 300px; background: #0a0a0a; border-right: 1px solid #222; padding: 40px; display: flex; flex-direction: column; justify-content: space-between; flex-shrink: 0; }
-        .logo { font-size: 24px; font-weight: 800; letter-spacing: -1px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
-        .logo span { background: var(--gold); color: black; padding: 2px 8px; border-radius: 4px; font-size: 18px; }
-        .sidebar-desc { font-size: 13px; color: #888; line-height: 1.6; }
-        
-        /* NEGOTIATE BUTTON */
-        .premium-btn { background: var(--gold); color: black; text-align: center; padding: 15px; font-weight: 800; text-transform: uppercase; border-radius: 4px; cursor: pointer; text-decoration: none; transition: transform 0.2s; display: block; border: none; width: 100%; font-size: 14px; }
-        .premium-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
 
-        /* CHAT AREA */
-        .main { flex: 1; display: flex; flex-direction: column; position: relative; width: 100%; }
-        .chat { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; scroll-behavior: smooth; }
-        .msg { padding: 20px; border-radius: 8px; max-width: 85%; line-height: 1.6; font-size: 15px; }
-        .ai { background: #111; border-left: 3px solid var(--gold); color: #eee; }
-        .user { background: #222; align-self: flex-end; color: #fff; }
-        
-        /* INPUT AREA */
-        .input-bar { 
-            padding: 20px; 
-            background: #000; 
-            display: flex; 
-            gap: 10px; 
-            border-top: 1px solid #222; 
-            align-items: center; 
-            /* iPhone Safe Area Fix */
-            padding-bottom: calc(20px + env(safe-area-inset-bottom)); 
+        /* --- HEADER --- */
+        header {
+            background: #050505;
+            padding: 15px 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+            flex-shrink: 0;
         }
-        input[type="text"] { flex: 1; background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 15px; border-radius: 8px; outline: none; font-size: 16px; -webkit-appearance: none; }
-        .send-btn { background: #333; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        
-        /* TABLES */
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; background: #000; border: 1px solid #333; font-size: 12px; }
-        th { text-align: left; color: var(--gold); border-bottom: 1px solid var(--gold); padding: 10px; }
-        td { padding: 10px; border-bottom: 1px solid #222; color: #ccc; }
+        .logo { font-weight: 800; font-size: 18px; letter-spacing: -0.5px; }
+        .logo span { color: #D4AF37; } /* Gold Accent */
 
-        /* MODALS */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); justify-content: center; align-items: center; z-index: 1000; }
-        .modal-box { background: #111; border: 1px solid var(--gold); padding: 30px; width: 90%; max-width: 450px; text-align: center; border-radius: 8px; position: relative; }
-        .close-btn { position: absolute; top: 15px; right: 20px; color: #666; cursor: pointer; font-size: 24px; }
-        .form-input { width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 15px; border-radius: 4px; box-sizing: border-box; }
-        .form-label { text-align: left; display: block; margin-bottom: 5px; color: var(--gold); font-size: 12px; font-weight: bold; text-transform: uppercase; }
-        
-        .dl-btn { display: block; width: 100%; margin-top: 20px; background: transparent; border: 1px solid var(--gold); color: var(--gold); padding: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; border-radius: 4px; }
-
-        /* 🔥 MOBILE RESPONSIVE RULES 🔥 */
-        @media (max-width: 768px) {
-            body { flex-direction: column; } /* Stack vertically */
-            
-            .sidebar { 
-                width: 100%; 
-                height: auto; 
-                padding: 15px 20px; 
-                flex-direction: row; 
-                align-items: center; 
-                border-right: none; 
-                border-bottom: 1px solid #222; 
-                box-sizing: border-box;
-            }
-            
-            /* Hide the text description on mobile to save space */
-            .sidebar-desc { display: none; }
-            
-            /* Make logo smaller */
-            .logo { font-size: 18px; margin-bottom: 0; }
-            
-            /* Button goes to the right */
-            .premium-btn { width: auto; padding: 8px 15px; font-size: 12px; margin-left: auto; }
-            
-            /* Chat adjustments */
-            .chat { padding: 15px; }
-            .msg { max-width: 90%; font-size: 14px; padding: 15px; }
-            
-            /* Input bar fixes */
-            .input-bar { padding: 15px; gap: 5px; }
-            input[type="text"] { padding: 12px; font-size: 14px; }
-            .send-btn { padding: 12px 15px; }
+        /* --- CHAT AREA (SCROLLABLE) --- */
+        #chat-box {
+            flex: 1; /* Takes up all remaining space */
+            overflow-y: auto; /* Enables Scroll */
+            -webkit-overflow-scrolling: touch; /* Smooth iPhone Scroll */
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
+
+        /* --- MESSAGES --- */
+        .message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 15px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+        .user-msg {
+            background: #333;
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+        .ai-msg {
+            background: #111;
+            border: 1px solid #333;
+            color: #e0e0e0;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+
+        /* --- TABLES (SCORECARD) --- */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th, td { border: 1px solid #444; padding: 8px; text-align: left; }
+        th { background: #222; color: #D4AF37; }
+
+        /* --- INPUT AREA (FIXED BOTTOM) --- */
+        .input-area {
+            background: #0a0a0a;
+            padding: 15px;
+            border-top: 1px solid #333;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-shrink: 0; /* Prevents squashing */
+        }
+        input[type="text"] {
+            flex: 1;
+            background: #222;
+            border: none;
+            color: #fff;
+            padding: 12px 15px;
+            border-radius: 25px;
+            font-size: 16px; /* Prevents zoom on iPhone */
+            outline: none;
+        }
+        button {
+            background: #D4AF37;
+            color: #000;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .upload-btn {
+            background: #333;
+            color: #fff;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            padding: 0;
+        }
+
+        /* --- LOADING SPINNER --- */
+        .loader { border: 3px solid #333; border-top: 3px solid #D4AF37; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div>
-            <div class="logo"><span>ZH</span> ZaHouse</div>
-            <div class="sidebar-desc">
-                <div style="color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; margin-top:10px;">Law Strategist</div>
-                <p>⚖️ Decode contracts.<br><br>📀 Equity analysis.<br><br>🛡️ 360 Protection.</p>
-            </div>
-        </div>
-        <button onclick="openContactModal()" class="premium-btn">Negotiate Deal</button>
-    </div>
 
-    <div class="main">
-        <div class="chat" id="chatBox">
-            <div class="msg ai">Yo, I'm the <strong>ZaHouse Music Law Strategist.</strong> Drop a contract or ask me about splits.</div>
-        </div>
-        <div class="input-bar">
-            <input type="file" id="fileInput" style="display:none" onchange="handleFile()">
-            <button onclick="document.getElementById('fileInput').click()" style="background:transparent; border:none; color:#666; font-size:24px; cursor:pointer;">📎</button>
-            <input type="text" id="userInput" placeholder="Ask a question..." onkeypress="if(event.key==='Enter') sendMessage()">
-            <button class="send-btn" onclick="sendMessage()">➔</button>
+    <header>
+        <div class="logo">ZH <span>ZaHouse</span></div>
+        <div id="loading" class="loader"></div>
+    </header>
+
+    <div id="chat-box">
+        <div class="message ai-msg">
+            <strong>ZaHouse Strategist:</strong><br>
+            Yo. I'm locked in. Upload a contract or ask me about splits.
         </div>
     </div>
 
-    <div id="emailModal" class="modal">
-        <div class="modal-box">
-            <h2 style="color:var(--gold); margin-top:0;">🔒 PROTOCOL LOCKED</h2>
-            <p style="color:#888; margin-bottom:30px;">Forensic Alpha reports are reserved for Protocol Members.</p>
-            <input type="email" id="gateEmailField" placeholder="artist@example.com" class="form-input" style="text-align:center;">
-            <button class="premium-btn" onclick="submitGateEmail()">UNLOCK REPORT</button>
-        </div>
+    <div class="input-area">
+        <label for="file-upload" class="upload-btn">📎</label>
+        <input type="file" id="file-upload" style="display: none;">
+        <input type="text" id="user-input" placeholder="Ask strategy..." autocomplete="off">
+        <button onclick="sendMessage()">➤</button>
     </div>
 
-    <div id="contactModal" class="modal">
-        <div class="modal-box" style="text-align:left;">
-            <span class="close-btn" onclick="closeContactModal()">&times;</span>
-            <h2 style="color:var(--gold); margin-top:0; text-align:center;">ENGINEER YOUR EQUITY</h2>
-            <p style="color:#888; margin-bottom:20px; text-align:center; font-size:13px;">Tell us who we are fighting for.</p>
-            
-            <label class="form-label">FULL NAME *</label>
-            <input type="text" id="cName" class="form-input" placeholder="Legal Name">
-            
-            <label class="form-label">EMAIL ADDRESS *</label>
-            <input type="email" id="cEmail" class="form-input" placeholder="you@label.com">
-            
-            <label class="form-label">ARTIST / BRAND NAME</label>
-            <input type="text" id="cArtist" class="form-input" placeholder="Stage Name">
-            
-            <div style="display:flex; gap:10px;">
-                <div style="flex:1;">
-                    <label class="form-label">IPI #</label>
-                    <input type="text" id="cIPI" class="form-input" placeholder="Optional">
-                </div>
-                <div style="flex:1;">
-                    <label class="form-label">PRO</label>
-                    <input type="text" id="cPRO" class="form-input" placeholder="ASCAP/BMI">
-                </div>
-            </div>
-
-            <button class="premium-btn" onclick="submitContactForm()">REQUEST REPRESENTATION</button>
-        </div>
-    </div>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <script>
-        let storedFile = null, userEmail = null, lastScore = 0, lastVerdict = "";
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const fileInput = document.getElementById('file-upload');
+        const loader = document.getElementById('loading');
+        let currentFile = null;
 
-        function handleFile() { 
-            storedFile = document.getElementById('fileInput').files[0]; 
-            if (storedFile) document.getElementById('userInput').value = `[Analyzing: ${storedFile.name}]`; 
+        // Auto-scroll to bottom
+        function scrollToBottom() {
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
+
+        fileInput.addEventListener('change', () => {
+            if(fileInput.files.length > 0) {
+                currentFile = fileInput.files[0];
+                userInput.placeholder = `Analyzing: ${currentFile.name}...`;
+                sendMessage(); // Auto-send on upload
+            }
+        });
 
         async function sendMessage() {
-            const input = document.getElementById('userInput'), chat = document.getElementById('chatBox');
-            if (!input.value && !storedFile) return;
+            const text = userInput.value.trim();
+            if (!text && !currentFile) return;
+
+            // 1. Add User Message
+            if (text) addMessage(text, 'user-msg');
+            userInput.value = '';
             
-            chat.innerHTML += `<div class="msg user">${input.value}</div>`;
-            const formData = new FormData(); 
-            formData.append('message', input.value);
-            if (storedFile) formData.append('file', storedFile);
-            if (userEmail) formData.append('email', userEmail);
-            
-            input.value = ''; 
-            setTimeout(() => chat.scrollTop = chat.scrollHeight, 100); // Slight delay for mobile scroll
+            // 2. Show Loader
+            loader.style.display = 'block';
+
+            // 3. Prepare Data
+            const formData = new FormData();
+            formData.append('message', text);
+            if (currentFile) {
+                formData.append('file', currentFile);
+                addMessage(`📎 Uploaded: ${currentFile.name}`, 'user-msg');
+                currentFile = null;
+                userInput.placeholder = "Ask strategy...";
+            }
 
             try {
-                const res = await fetch('/audit', { method: 'POST', body: formData });
-                const data = await res.json();
+                // 4. Send to Backend
+                const response = await fetch('/audit', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
 
-                if (data.requiresEmail) { 
-                    document.getElementById('emailModal').style.display = 'flex'; 
-                    return; 
-                }
+                // 5. Add AI Message (Parse Markdown)
+                loader.style.display = 'none';
+                addMessage(marked.parse(data.response), 'ai-msg', true);
 
-                chat.innerHTML += `<div class="msg ai">${formatResponse(data.response)}</div>`;
-                
-                if (data.isAudit) {
-                    const match = data.response.match(/SCORE:.*?(\d+)/); 
-                    lastScore = match ? match[1] : "N/A"; 
-                    lastVerdict = data.response;
-                    chat.innerHTML += `<button class="dl-btn" onclick="downloadPDF()">📄 DOWNLOAD OFFICIAL AUDIT PDF</button>`;
-                }
-                
-                setTimeout(() => chat.scrollTop = chat.scrollHeight, 100);
-                storedFile = null;
-            } catch (e) { alert("System Error: " + e.message); }
+            } catch (err) {
+                loader.style.display = 'none';
+                addMessage("System Error: Could not reach the Strategist.", 'ai-msg');
+            }
         }
 
-        async function submitGateEmail() {
-            const emailInput = document.getElementById('gateEmailField').value;
-            if (!emailInput.includes('@')) return alert("Enter a valid industry email");
-            userEmail = emailInput;
-            document.getElementById('emailModal').style.display = 'none';
-            await fetch('/capture-lead', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email: userEmail, type: 'GATE_UNLOCK' }) });
-            sendMessage();
-        }
-
-        function openContactModal() { document.getElementById('contactModal').style.display = 'flex'; }
-        function closeContactModal() { document.getElementById('contactModal').style.display = 'none'; }
-        
-        async function submitContactForm() {
-            const name = document.getElementById('cName').value;
-            const email = document.getElementById('cEmail').value;
-            const artist = document.getElementById('cArtist').value;
-            const ipi = document.getElementById('cIPI').value;
-            const pro = document.getElementById('cPRO').value;
-
-            if (!name || !email) return alert("Name and Email are required.");
-
-            const btn = document.querySelector('#contactModal .premium-btn');
-            btn.innerText = "SENDING...";
-
-            await fetch('/submit-inquiry', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({ name, email, artist, ipi, pro })
-            });
-
-            alert("Request Received. Protocol Initiated.");
-            closeContactModal();
-            btn.innerText = "REQUEST REPRESENTATION";
-        }
-
-        async function downloadPDF() {
-            const btn = document.querySelector('.dl-btn');
-            btn.innerText = "⏳ GENERATING...";
-            const res = await fetch('/download-audit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ score: lastScore, verdict: lastVerdict }) });
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = "ZaHouse_Forensic_Audit.pdf"; a.click();
-            btn.innerText = "✅ DOWNLOAD COMPLETE";
-        }
-
-        function formatResponse(text) {
-            if (!text) return "";
-            return text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/### (.*?)\n/g, '<h3 style="color:#D4AF37; margin-bottom:10px;">$1</h3>')
-                .replace(/\| (.*?) \|\n/g, (match) => { 
-                    const cells = match.split('|').filter(c => c.trim() !== '');
-                    if (match.includes('---')) return ''; 
-                    const tag = match.includes('METRIC') || match.includes('⚖️') ? 'th' : 'td';
-                    return `<tr>${cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('')}</tr>`;
-                })
-                .replace(/(<tr>.*?<\/tr>)/g, '<table>$1</table>') 
-                .replace(/<\/table><table>/g, '') 
-                .replace(/\n/g, '<br>');
+        function addMessage(html, className, isHTML = false) {
+            const div = document.createElement('div');
+            div.className = `message ${className}`;
+            if (isHTML) div.innerHTML = html;
+            else div.textContent = html;
+            chatBox.appendChild(div);
+            scrollToBottom();
         }
     </script>
 </body>
