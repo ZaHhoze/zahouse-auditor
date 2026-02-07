@@ -160,7 +160,7 @@ app.post('/audit', upload.single('file'), async (req, res) => {
         // 2. Call Claude 3.5 Sonnet
         // 🔥 FIXED: USING THE SPECIFIC ID TO PREVENT 404 ERRORS 🔥
         const msg = await anthropic.messages.create({
-            model: "claude-3-5-sonnet-20241022", 
+            model: "claude-3-5-sonnet-20240620",
             max_tokens: 4000,
             system: ZAHOUSE_SYSTEM_INSTRUCTIONS,
             messages: [
