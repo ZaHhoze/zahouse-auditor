@@ -157,9 +157,9 @@ app.post('/audit', upload.single('file'), async (req, res) => {
             fs.unlinkSync(req.file.path);
         }
 
-        // 2. Call Claude 3.5 Sonnet
+model:  // 2. Call Claude 3.5 Sonnet
         const msg = await anthropic.messages.create({
-            model: "claude-3-5-sonnet-latest", 
+            model: "claude-3-5-sonnet-20241022",
             max_tokens: 4000,
             system: ZAHOUSE_SYSTEM_INSTRUCTIONS, // The Updated Brain
             messages: [
