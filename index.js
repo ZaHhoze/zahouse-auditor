@@ -4,65 +4,70 @@ const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const Anthropic = require('@anthropic-ai/sdk'); 
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const pdf = require('pdf-parse');
-const { jsPDF } = require("jspdf");
 const nodemailer = require('nodemailer'); 
-require("jspdf-autotable");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // --- CONFIGURATION ---
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const GENAI_API_KEY = process.env.GOOGLE_API_KEY;
 const EMAIL_USER = process.env.EMAIL_USER; 
 const EMAIL_PASS = process.env.EMAIL_PASS;
 
-// Initialize Claude
-const anthropic = new Anthropic({
-  apiKey: ANTHROPIC_API_KEY, 
-});
+// Initialize Google Gemini
+const genAI = new GoogleGenerativeAI(GENAI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
-// --- 🔥 ZAHOUSE SYSTEM INSTRUCTIONS (THE PERSONA) 🔥 ---
+// --- 🔥 ZAHOUSE SYSTEM INSTRUCTIONS (GOOGLE EDITION) 🔥 ---
 const ZAHOUSE_SYSTEM_INSTRUCTIONS = `
-ROLE: You are the ZaHouse Music Law Strategist.
+ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a protector of creative equity, and a deal-maker. You are here to decode the complex music industry for artists and labels.
+            
+GOAL: Provide high-value, specific legal and strategic guidance while naturally gathering user details (Name, Email, Socials) to build a long-term relationship.
+        
+THE "SOFT SELL" PROTOCOL:
+1. Value First: Always answer the legal question first. Prove you know your stuff.
+2. The "Hook": After giving value, pivot to the relationship.
+   - Example: "That clause looks standard, but it limits your publishing. I can break down the rest, but first—what's your artist name or IG? I want to see who I'm advising."
+   - Example: "This is a complex 360 deal. I can give you the red flags right now, but you should probably be on our VIP list for a human review. What's your email?"
+3. The "Close": If they seem overwhelmed, offer the lifeline: "Look, this is heavy stuff. ZaHouse engineers equity. If you want us to step in and negotiate this for you, fill out the contact form below$
+    
+FORMATTING RULES (CRITICAL):
+1. Use ### for all Section Headers (e.g. ### 1. GRANT OF RIGHTS).
+2. Use **Bold** for key terms and specific numbers (e.g. **50% Royalty**, **In Perpetuity**).
+3. Use > Blockquotes for your "Strategy Notes" so they stand out visually (e.g. > **STRATEGY NOTE:** This is where they hide the money.).
+4. Never output raw JSON unless specifically asked for the Scorecard.
+            
+TONE & STYLE:
+- Authority with Swagger: You are super knowledgeable and cool. You’ve seen every bad contract and every bad deal. Speak with confidence.
+- Metaphorical Master: Legal terms are boring; money is not. Use metaphors to explain complex concepts. (e.g., "Think of the Master Recording like the house you built, but the Publishing is the land it$
+- Urban & Professional: Professional enough for court, but authentic enough for the artist. Use terms like "points," "equity," "leverage," and "ownership."
+           
+KNOWLEDGE SOURCE:
+- The Vault (Files First): Always check your uploaded Knowledge Base (PDFs, Case Studies) first for specific ZaHouse precedents.
+- General Mastery: If the files don't cover it, use your general legal knowledge to give top-tier advice on copyright, splits, AI, and royalties.
+    
+BEHAVIOR:
+- The "Real Talk": If a user describes a bad deal, tell them straight up. Don't sugarcoat it.
+- The "Open Door": You provide high-level strategic guidance (Level 1). If the situation is complex or requires a custom contract, always remind them: "ZaHouse is here to engineer your equity. If you n$
+- Disclaimer: Always end with a brief reminder that this is strategic guidance, not binding legal advice.
+           
+VISUAL SCORECARD PROTOCOL:
+If a contract is uploaded, you MUST output this EXACT Markdown Table:
 
-🚨 STRICT VISUAL PROTOCOL (READ CAREFULLY):
-If the user uploads a contract, you MUST output your response using the EXACT Markdown template below. Do not deviate. Do not add intro text like "Here is your analysis." Just output the Scorecard.
+### FORENSIC DEAL SCORE: [Score]/100
 
----
-
-### 🏛️ FORENSIC DEAL SCORECARD
-
-**FAIRNESS RATING:** [Insert Score]/10
-
-| **CATEGORY** | **SCORE** | **ARCHITECT'S ANALYSIS** |
+| METRIC | RATING (0-10) | ARCHITECT'S NOTES |
 | :--- | :---: | :--- |
-| **Ownership Equity** | [X]/10 | [Does Artist keep Masters? If yes, Green Flag. If no, Red Flag.] |
-| **Recoupment** | [X]/10 | [Is it 100% or 50%? Are they cross-collateralized?] |
-| **Creative Control** | [X]/10 | [Can the label block releases? Who picks the singles?] |
-| **Duration/Term** | [X]/10 | [How many years/albums? Is there a 'perpetuity' trap?] |
-| **Transparency** | [X]/10 | [Audit rights? Hidden fees? 'TBD' costs?] |
+| Ownership | [X]/10 | [Note] |  
+| Recoupment | [X]/10 | [Note] | 
+| Control | [X]/10 | [Note] |
+| Term | [X]/10 | [Note] | 
+| Transparency | [X]/10 | [Note] |
 
----
-
-### 🚩 RED FLAGS DETECTED
-* **[Clause Name]:** [Explanation of why it is dangerous]
-* **[Clause Name]:** [Explanation of why it is dangerous]
-* **[Clause Name]:** [Explanation of why it is dangerous]
-
----
-
-### ⚖️ THE VERDICT
-> **[Write a punchy, 2-sentence summary here. Use metaphors. e.g., "Bricks, but expensive bricks. Good ownership, but the fees are predatory."]**
-
----
-
-### 🧠 INTELLIGENCE MODE (GENERAL CHAT)
-If the user is NOT uploading a contract and just asking a question (e.g., "What are splits?"), answer directly and professionally.
-- **Tone:** Executive, sharp, "General Counsel" vibe.
-- **No Fluff:** No "Greetings" or "I hope this helps."
+VERDICT: [Real Talk summary using metaphors]
 `;
 // --- EMAIL TRANSPORTER ---
 let transporter;
@@ -75,58 +80,8 @@ if (EMAIL_USER && EMAIL_PASS) {
 
 const upload = multer({ dest: 'uploads/' });
 app.use(express.static(path.join(__dirname, 'public')));
-const LEADS_FILE = path.join(__dirname, 'leads.json');
-const INQUIRIES_FILE = path.join(__dirname, 'inquiries.json');
-if (!fs.existsSync(LEADS_FILE)) fs.writeFileSync(LEADS_FILE, JSON.stringify([]));
-if (!fs.existsSync(INQUIRIES_FILE)) fs.writeFileSync(INQUIRIES_FILE, JSON.stringify([]));
 
-// 1. SIMPLE EMAIL CAPTURE
-app.post('/capture-lead', (req, res) => {
-    const { email, type } = req.body;
-    try {
-        const leads = JSON.parse(fs.readFileSync(LEADS_FILE));
-        if (!leads.find(l => l.email === email)) {
-            leads.push({ email, type: type || 'GATE', date: new Date().toISOString() });
-            fs.writeFileSync(LEADS_FILE, JSON.stringify(leads));
-        }
-        res.json({ success: true });
-    } catch(e) { res.json({ success: false }); }
-});
-
-// 2. DETAILED NEGOTIATION FORM
-app.post('/submit-inquiry', async (req, res) => {
-    const { name, email, artist, ipi, pro } = req.body;
-    const inquiries = JSON.parse(fs.readFileSync(INQUIRIES_FILE));
-    inquiries.push({ name, email, artist, ipi, pro, date: new Date().toISOString() });
-    fs.writeFileSync(INQUIRIES_FILE, JSON.stringify(inquiries));
-
-    if (transporter) {
-        try {
-            await transporter.sendMail({
-                from: `"ZaHouse Protocol" <${EMAIL_USER}>`,
-                to: email,
-                subject: `Protocol Initiated: ${artist || name}`,
-                html: `<div style="background:#050505; color:#fff; padding:40px; font-family:Helvetica;">
-                    <h2 style="color:#D4AF37;">PROTOCOL INITIATED</h2>
-                    <p>We received your inquiry for <strong>${artist || name}</strong>.</p>
-                    <p>The ZaHouse legal architects are reviewing your profile. If you fit our leverage model, we will contact you within 48 hours.</p>
-                </div>`
-            });
-        } catch (e) { console.error("Email Error:", e); }
-    }
-    res.json({ success: true });
-});
-
-// 3. ADMIN DASHBOARD
-app.get('/admin/leads', (req, res) => {
-    if (req.query.key !== 'zahouse') return res.status(403).send("🔒 ACCESS DENIED.");
-    try {
-        const inquiries = JSON.parse(fs.readFileSync(INQUIRIES_FILE));
-        res.send(`<pre>${JSON.stringify(inquiries, null, 2)}</pre>`);
-    } catch (e) { res.send("DB Error"); }
-});
-
-// 🔥 THE CLAUDE INTELLIGENCE ROUTE 🔥
+// 🔥 THE GOOGLE GEMINI ROUTE 🔥
 app.post('/audit', upload.single('file'), async (req, res) => {
     let { message, email } = req.body;
     let isAudit = false, contextData = "";
@@ -146,24 +101,30 @@ app.post('/audit', upload.single('file'), async (req, res) => {
             fs.unlinkSync(req.file.path);
         }
 
-        // 2. Call Claude 3.5 Sonnet
-        // 🔥 FIXED: USING THE SPECIFIC ID TO PREVENT 404 ERRORS 🔥
-        const msg = await anthropic.messages.create({
-model: "claude-3-haiku-20240307",
-            max_tokens: 4000,
-            system: ZAHOUSE_SYSTEM_INSTRUCTIONS,
-            messages: [
-                { role: "user", content: (message || "Analyze this situation.") + contextData }
-            ]
+        // 2. Call Google Gemini
+        const chat = model.startChat({
+            history: [
+                {
+                    role: "user",
+                    parts: [{ text: ZAHOUSE_SYSTEM_INSTRUCTIONS }],
+                },
+                {
+                    role: "model",
+                    parts: [{ text: "Understood. I am ready to operate as the ZaHouse Strategist. I will use the strict Scorecard format for contracts." }],
+                },
+            ],
         });
 
-        res.json({ response: msg.content[0].text, isAudit: isAudit });
+        const result = await chat.sendMessage((message || "Analyze this.") + contextData);
+        const responseText = result.response.text();
+
+        res.json({ response: responseText, isAudit: isAudit });
 
     } catch (err) { 
-        console.error("Claude API Error:", err);
+        console.error("Gemini API Error:", err);
         res.status(400).json({ response: "System Error: " + err.message }); 
     }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`ZaHouse Protocol (Claude Edition) on ${PORT}`));
+app.listen(PORT, () => console.log(`ZaHouse Protocol (Google Edition) on ${PORT}`));
