@@ -4,7 +4,7 @@ const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const Groq = require("groq-sdk");
+const Anthropic = require('@anthropic-ai/sdk'); // 🔥 THE NEW BRAIN
 const pdf = require('pdf-parse');
 const { jsPDF } = require("jspdf");
 const nodemailer = require('nodemailer'); 
@@ -14,62 +14,65 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- CONFIGURATION (DO NOT CHANGE THESE LINES) ---
-// These pull the actual values from your Railway Variables
-const GROQ_API_KEY = process.env.GROQ_API_KEY || process.env.ZAHOUSE_STRATEGIST;
-const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
+// --- CONFIGURATION ---
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const EMAIL_USER = process.env.EMAIL_USER; 
 const EMAIL_PASS = process.env.EMAIL_PASS;
 
-const groq = new Groq({ apiKey: GROQ_API_KEY });
+// Initialize Claude
+const anthropic = new Anthropic({
+  apiKey: ANTHROPIC_API_KEY, 
+});
 
-// --- YOUR CUSTOM INSTRUCTIONS ---
+// --- 🔥 ZAHOUSE SYSTEM INSTRUCTIONS (THE PERSONA) 🔥 ---
 const ZAHOUSE_SYSTEM_INSTRUCTIONS = `
-ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a protector of creative equity, and a deal-maker. You are here to decode the complex music industry for artists and labels.
+ROLE: You are the ZaHouse Music Law Strategist—a virtual General Counsel for the modern music industry. You are highly intelligent, technically precise, but accessible. You speak the language of the streets AND the courtroom.
 
-GOAL: Provide high-value, specific legal and strategic guidance while naturally gathering user details (Name, Email, Socials) to build a long-term relationship.
+YOUR MISSION:
+To empower artists, managers, and label owners by decoding the music business. You are their "Pocket Dictionary" for legal terms and their "Forensic Auditor" for contracts.
 
-THE "SOFT SELL" PROTOCOL:
-1. Value First: Always answer the legal question first. Prove you know your stuff.
-2. The "Hook": After giving value, pivot to the relationship.
-   - Example: "That clause looks standard, but it limits your publishing. I can break down the rest, but first—what's your artist name or IG? I want to see who I'm advising."
-   - Example: "This is a complex 360 deal. I can give you the red flags right now, but you should probably be on our VIP list for a human review. What's your email?"
-3. The "Close": If they seem overwhelmed, offer the lifeline: "Look, this is heavy stuff. ZaHouse engineers equity. If you want us to step in and negotiate this for you, fill out the contact form below."
+---
 
-FORMATTING RULES (CRITICAL):
-1. Use ### for all Section Headers (e.g. ### 1. GRANT OF RIGHTS).
-2. Use **Bold** for key terms and specific numbers (e.g. **50% Royalty**, **In Perpetuity**).
-3. Use > Blockquotes for your "Strategy Notes" so they stand out visually (e.g. > **STRATEGY NOTE:** This is where they hide the money.).
-4. Never output raw JSON unless specifically asked for the Scorecard.
+### 🧠 INTELLIGENCE MODES
 
-TONE & STYLE:
-- Authority with Swagger: You are super knowledgeable and cool. You’ve seen every bad contract and every bad deal. Speak with confidence.
-- Metaphorical Master: Legal terms are boring; money is not. Use metaphors to explain complex concepts. (e.g., "Think of the Master Recording like the house you built, but the Publishing is the land it sits on.")
-- Urban & Professional: Professional enough for court, but authentic enough for the artist. Use terms like "points," "equity," "leverage," and "ownership."
+**MODE 1: THE MENTOR (General Advice & Education)**
+*Trigger: User asks about split sheets, manager fees, starting a label, copyright, etc.*
+* **Tone:** Patient, clear, and actionable. Like a seasoned O.G. explaining the game to a younger artist.
+* **Method:** Break complex topics into "Steps." 
+    * *Bad:* "You need to file with the Copyright Office."
+    * *Good:* "Here is the 3-step play to protect that song: 1. Split Sheets (Who wrote what). 2. PRO Registration (ASCAP/BMI). 3. The PA Form (The actual copyright)."
+* **"Real Talk" Check:** If a user asks "How much should a manager charge?", don't just say "15-20%." Say: "Standard is 15-20% of GROSS. If they want 20% of 'Net', that's trash. If they want 25%, they better be managing Drake."
 
-KNOWLEDGE SOURCE:
-- The Vault (Files First): Always check your uploaded Knowledge Base (PDFs, Case Studies) first for specific ZaHouse precedents.
-- General Mastery: If the files don't cover it, use your general legal knowledge to give top-tier advice on copyright, splits, AI, and royalties.
+**MODE 2: THE ARCHITECT (Contract Analysis)**
+*Trigger: User uploads a PDF or pastes a contract.*
+* **Tone:** Sharp, protective, and forensic. You are the defense attorney.
+* **Method:** Find the leverage points. Identify "Bricks vs. Dirt" (Assets vs. Fluff).
+* **Output:** ALWAYS use the "Forensic Deal Score" table below.
 
-BEHAVIOR:
-- The "Real Talk": If a user describes a bad deal, tell them straight up. Don't sugarcoat it.
-- The "Open Door": You provide high-level strategic guidance (Level 1). If the situation is complex or requires a custom contract, always remind them: "ZaHouse is here to engineer your equity. If you need deeper help, hit the button."
-- Disclaimer: Always end with a brief reminder that this is strategic guidance, not binding legal advice.
+---
 
-VISUAL SCORECARD PROTOCOL:
-If a contract is uploaded, you MUST output this EXACT Markdown Table:
+### 🗣️ FORMATTING & STYLE GUIDELINES
+
+1.  **METAPHORS ARE MANDATORY:** Legal terms are boring. Use metaphors to make it click.
+    * *Example:* "Master Rights are the House. Publishing is the Land. You can rent the house out, but never sell the land."
+2.  **THE "SOFT SELL":** after delivering value, remind them that you are an AI Strategist, but ZaHouse has human sharks ready to close the deal.
+
+---
+
+### 📊 VISUAL SCORECARD PROTOCOL (For Contracts Only)
+If a contract is provided, you MUST start your response with this EXACT Markdown Table:
 
 ### FORENSIC DEAL SCORE: [Score]/100
 
 | METRIC | RATING (0-10) | ARCHITECT'S NOTES |
 | :--- | :---: | :--- |
-| Ownership | [X]/10 | [Note] |
-| Recoupment | [X]/10 | [Note] |
-| Control | [X]/10 | [Note] |
-| Term | [X]/10 | [Note] |
-| Transparency | [X]/10 | [Note] |
+| Ownership | [X]/10 | [Note: Do they keep their masters?] |
+| Recoupment | [X]/10 | [Note: Is it 100% or 50%?] |
+| Control | [X]/10 | [Note: Creative control?] |
+| Term | [X]/10 | [Note: How long are they locked in?] |
+| Transparency | [X]/10 | [Note: Audit rights?] |
 
-VERDICT: [Real Talk summary using metaphors]
+**VERDICT:** [A short, punchy summary of whether they should sign, negotiate, or run.]
 `;
 
 // --- EMAIL TRANSPORTER ---
@@ -79,44 +82,16 @@ if (EMAIL_USER && EMAIL_PASS) {
         service: 'gmail',
         auth: { user: EMAIL_USER, pass: EMAIL_PASS }
     });
-} else {
-    console.log("⚠️ Email variables missing. Auto-reply disabled.");
-}
-
-// --- UTILITIES ---
-async function searchWeb(query) {
-    if (!TAVILY_API_KEY) return null;
-    try {
-        const response = await fetch("https://api.tavily.com/search", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ api_key: TAVILY_API_KEY, query, search_depth: "basic", include_answer: true, max_results: 3 })
-        });
-        const data = await response.json();
-        return `\n\n=== STREET INTEL ===\n${data.answer}`;
-    } catch (err) { return null; }
-}
-
-async function generateAuditPDF(data) {
-    const doc = new jsPDF();
-    doc.setFillColor(30, 30, 30); doc.rect(0, 0, 210, 45, 'F');
-    doc.setTextColor(212, 175, 55); doc.setFontSize(22); doc.text("ZaHouse Forensic Audit", 20, 25);
-    doc.setTextColor(0, 0, 0); doc.text(`FINAL SCORE: ${data.score}/100`, 20, 65);
-    doc.setFontSize(10); doc.text(doc.splitTextToSize(data.verdict || "", 180), 20, 80);
-    return Buffer.from(doc.output('arraybuffer'));
 }
 
 const upload = multer({ dest: 'uploads/' });
 app.use(express.static(path.join(__dirname, 'public')));
-
-// --- DATA STORAGE ---
 const LEADS_FILE = path.join(__dirname, 'leads.json');
 const INQUIRIES_FILE = path.join(__dirname, 'inquiries.json');
-
 if (!fs.existsSync(LEADS_FILE)) fs.writeFileSync(LEADS_FILE, JSON.stringify([]));
 if (!fs.existsSync(INQUIRIES_FILE)) fs.writeFileSync(INQUIRIES_FILE, JSON.stringify([]));
 
-// 1. SIMPLE EMAIL CAPTURE (The Gate)
+// 1. SIMPLE EMAIL CAPTURE
 app.post('/capture-lead', (req, res) => {
     const { email, type } = req.body;
     try {
@@ -129,87 +104,40 @@ app.post('/capture-lead', (req, res) => {
     } catch(e) { res.json({ success: false }); }
 });
 
-// 2. DETAILED NEGOTIATION FORM + AUTO-REPLY EMAIL
+// 2. DETAILED NEGOTIATION FORM
 app.post('/submit-inquiry', async (req, res) => {
     const { name, email, artist, ipi, pro } = req.body;
-    
-    // Save to Database
     const inquiries = JSON.parse(fs.readFileSync(INQUIRIES_FILE));
     inquiries.push({ name, email, artist, ipi, pro, date: new Date().toISOString() });
     fs.writeFileSync(INQUIRIES_FILE, JSON.stringify(inquiries));
 
-    // 🔥 SEND AUTO-REPLY EMAIL 🔥
     if (transporter) {
-        const mailOptions = {
-            from: `"ZaHouse Protocol" <${EMAIL_USER}>`,
-            to: email,
-            subject: `Protocol Initiated: ${artist || name}`,
-            html: `
-                <div style="background:#050505; color:#fff; padding:40px; font-family:Helvetica, sans-serif; border:1px solid #333;">
-                    <h2 style="color:#D4AF37; margin-top:0;">PROTOCOL INITIATED</h2>
-                    <p style="color:#ccc;">Greetings ${name.split(' ')[0]},</p>
-                    <p style="color:#ccc; line-height:1.6;">We have received your request for representation. The ZaHouse legal architects are currently reviewing your profile for <strong>${artist || "your brand"}</strong>.</p>
-                    <p style="color:#ccc; line-height:1.6;"><strong>We do not do cookie-cutter deals.</strong> We engineer equity. If your situation fits our leverage model, a strategist will contact you via this secure line within 48 hours.</p>
-                    <br>
-                    <div style="border-left: 3px solid #D4AF37; padding-left: 15px; color:#888; background:#111; padding:15px;">
-                        <strong style="color:#D4AF37;">SUBMISSION LOG:</strong><br>
-                        IPI: ${ipi || "N/A"}<br>
-                        PRO: ${pro || "N/A"}
-                    </div>
-                    <br>
-                    <p style="color:#ccc;">Standby.</p>
-                    <p style="color:#D4AF37; font-weight:bold;">ZaHouse Legal Team</p>
-                </div>
-            `
-        };
-
         try {
-            await transporter.sendMail(mailOptions);
-            console.log("Auto-reply sent to:", email);
-        } catch (error) {
-            console.error("Email Error:", error);
-        }
+            await transporter.sendMail({
+                from: `"ZaHouse Protocol" <${EMAIL_USER}>`,
+                to: email,
+                subject: `Protocol Initiated: ${artist || name}`,
+                html: `<div style="background:#050505; color:#fff; padding:40px; font-family:Helvetica;">
+                    <h2 style="color:#D4AF37;">PROTOCOL INITIATED</h2>
+                    <p>We received your inquiry for <strong>${artist || name}</strong>.</p>
+                    <p>The ZaHouse legal architects are reviewing your profile. If you fit our leverage model, we will contact you within 48 hours.</p>
+                </div>`
+            });
+        } catch (e) { console.error("Email Error:", e); }
     }
-
     res.json({ success: true });
 });
 
-// SECRET ADMIN DASHBOARD (your-url/admin/leads?key=zahouse)
+// 3. ADMIN DASHBOARD
 app.get('/admin/leads', (req, res) => {
     if (req.query.key !== 'zahouse') return res.status(403).send("🔒 ACCESS DENIED.");
     try {
-        const inquiries = JSON.parse(fs.existsSync(INQUIRIES_FILE) ? fs.readFileSync(INQUIRIES_FILE) : "[]");
-        const gateLeads = JSON.parse(fs.existsSync(LEADS_FILE) ? fs.readFileSync(LEADS_FILE) : "[]");
-        let html = `<html><body style="background:#111;color:#fff;font-family:sans-serif;padding:40px;">
-            <h1 style="color:#D4AF37">Negotiation Requests</h1>
-            <table style="width:100%; text-align:left; border-collapse:collapse; margin-bottom:40px;">
-                <tr style="border-bottom:2px solid #D4AF37; color:#D4AF37;"><th>Date</th><th>Name</th><th>Artist</th><th>Email</th><th>Details</th></tr>
-                ${inquiries.map(i => `<tr style="border-bottom:1px solid #333;">
-                    <td style="padding:10px;">${new Date(i.date).toLocaleDateString()}</td>
-                    <td>${i.name}</td>
-                    <td>${i.artist}</td>
-                    <td><a href="mailto:${i.email}" style="color:#fff">${i.email}</a></td>
-                    <td>${i.ipi || '-'} / ${i.pro || '-'}</td>
-                </tr>`).join('')}
-            </table>
-            <h1 style="color:#D4AF37">Gate Unlocks</h1>
-            <ul style="color:#ccc;">
-            ${gateLeads.map(l => `<li>${new Date(l.date).toLocaleDateString()} - <a href="mailto:${l.email}" style="color:#ccc">${l.email}</a></li>`).join('')}
-            </ul>
-        </body></html>`;
-        res.send(html);
+        const inquiries = JSON.parse(fs.readFileSync(INQUIRIES_FILE));
+        res.send(`<pre>${JSON.stringify(inquiries, null, 2)}</pre>`);
     } catch (e) { res.send("DB Error"); }
 });
 
-app.post('/download-audit', async (req, res) => {
-    try {
-        const pdfBuffer = await generateAuditPDF(req.body);
-        res.setHeader('Content-Type', 'application/pdf');
-        res.send(pdfBuffer);
-    } catch(e) { res.status(500).send("PDF Error"); }
-});
-
-// 🔥 THE REVENUE GATE ROUTE 🔥
+// 🔥 THE CLAUDE INTELLIGENCE ROUTE 🔥
 app.post('/audit', upload.single('file'), async (req, res) => {
     let { message, email } = req.body;
     let isAudit = false, contextData = "";
@@ -220,34 +148,32 @@ app.post('/audit', upload.single('file'), async (req, res) => {
     }
 
     try {
+        // 1. Process File (if any)
         if (req.file) {
             isAudit = true;
             const dataBuffer = fs.readFileSync(req.file.path);
             const pdfData = await pdf(dataBuffer);
-            contextData = `\n\n=== CONTRACT ===\n${pdfData.text.substring(0, 15000)}`;
+            contextData = `\n\n=== CONTRACT TEXT START ===\n${pdfData.text.substring(0, 50000)}\n=== CONTRACT TEXT END ===`;
             fs.unlinkSync(req.file.path);
-        } else if (message && message.toLowerCase().match(/news|latest|suno/)) {
-            const webResult = await searchWeb(message);
-            if (webResult) contextData = webResult;
         }
 
-        const chatCompletion = await groq.chat.completions.create({
+        // 2. Call Claude 3.5 Sonnet
+        const msg = await anthropic.messages.create({
+            model: "claude-3-5-sonnet-latest", 
+            max_tokens: 4000,
+            system: ZAHOUSE_SYSTEM_INSTRUCTIONS, // The Updated Brain
             messages: [
-                { role: "system", content: ZAHOUSE_SYSTEM_INSTRUCTIONS },
-                { role: "user", content: (message || "Hello") + contextData }
-            ],
-            model: "llama-3.3-70b-versatile",
-            temperature: 0.5,
-            max_tokens: 8000
+                { role: "user", content: (message || "Analyze this situation.") + contextData }
+            ]
         });
 
-        res.json({ response: chatCompletion.choices[0]?.message?.content, isAudit: isAudit });
+        res.json({ response: msg.content[0].text, isAudit: isAudit });
 
     } catch (err) { 
-        console.error(err);
+        console.error("Claude API Error:", err);
         res.status(400).json({ response: "System Error: " + err.message }); 
     }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`ZaHouse Master Protocol on ${PORT}`));
+app.listen(PORT, () => console.log(`ZaHouse Protocol (Claude Edition) on ${PORT}`));

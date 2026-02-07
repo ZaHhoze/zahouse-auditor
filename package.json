@@ -11,7 +11,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "multer": "^1.4.5-lts.1",
-    "groq-sdk": "^0.3.3",
+    "@anthropic-ai/sdk": "^0.36.3",
     "pdf-parse": "^1.1.1",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
