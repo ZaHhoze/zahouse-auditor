@@ -4,7 +4,7 @@ const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const Anthropic = require('@anthropic-ai/sdk'); // 🔥 THE NEW BRAIN
+const Anthropic = require('@anthropic-ai/sdk'); 
 const pdf = require('pdf-parse');
 const { jsPDF } = require("jspdf");
 const nodemailer = require('nodemailer'); 
@@ -157,11 +157,12 @@ app.post('/audit', upload.single('file'), async (req, res) => {
             fs.unlinkSync(req.file.path);
         }
 
-model:  // 2. Call Claude 3.5 Sonnet
+        // 2. Call Claude 3.5 Sonnet
+        // 🔥 FIXED: USING THE SPECIFIC ID TO PREVENT 404 ERRORS 🔥
         const msg = await anthropic.messages.create({
-            model: "claude-3-5-sonnet-20241022",
+            model: "claude-3-5-sonnet-20241022", 
             max_tokens: 4000,
-            system: ZAHOUSE_SYSTEM_INSTRUCTIONS, // The Updated Brain
+            system: ZAHOUSE_SYSTEM_INSTRUCTIONS,
             messages: [
                 { role: "user", content: (message || "Analyze this situation.") + contextData }
             ]
