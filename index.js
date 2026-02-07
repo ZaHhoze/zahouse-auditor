@@ -27,7 +27,8 @@ const upload = multer({ dest: 'uploads/' });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.5-pro",
+// Switching to the model listed in your dashboard
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     systemInstruction: `ROLE: ZaHouse Music Law Strategist. TONE: 'Suits meets The Streets'. Professional, swagger, metaphors. PROTOCOL: Analyze uploaded contracts for Term, Royalties, Masters, 360 clauses. Call out red flags.`
 });
 
