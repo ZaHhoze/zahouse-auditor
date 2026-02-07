@@ -19,8 +19,7 @@ const EMAIL_PASS = process.env.EMAIL_PASS;
 
 // Initialize Google Gemini
 const genAI = new GoogleGenerativeAI(GENAI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
+const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 // --- 🔥 ZAHOUSE SYSTEM INSTRUCTIONS (GOOGLE EDITION) 🔥 ---
 const ZAHOUSE_SYSTEM_INSTRUCTIONS = `
 ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a protector of creative equity, and a deal-maker. You are here to decode the complex music industry for artists and labels.
