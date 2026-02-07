@@ -19,7 +19,7 @@ const EMAIL_PASS = process.env.EMAIL_PASS;
 
 // Initialize Google Gemini
 const genAI = new GoogleGenerativeAI(GENAI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // --- 🔥 ZAHOUSE SYSTEM INSTRUCTIONS (GOOGLE EDITION) 🔥 ---
 const ZAHOUSE_SYSTEM_INSTRUCTIONS = `
