@@ -26,7 +26,7 @@
         ::-webkit-scrollbar-thumb:hover { background: var(--zahouse-gold); }
 
         /* Mobile Fixes */
-        .mobile-height { height: 100dvh; } /* Dynamic Viewport Height */
+        .mobile-height { height: 100dvh; } 
         
         /* Typing Animation */
         .typing-dot {
@@ -74,7 +74,7 @@
             </div>
         </div>
 
-        <a href="mailto:contact@zahouse.org?subject=Negotiate My Deal&body=I need ZaHouse to step in." class="w-full py-3 bg-[#FFD700] hover:bg-yellow-400 text-black font-bold text-center rounded-lg brand-font text-sm uppercase tracking-wide transition transform hover:scale-105">
+        <a href="mailto:admin@za.house?subject=Negotiate My Deal&body=I need ZaHouse to step in." class="w-full py-3 bg-[#FFD700] hover:bg-yellow-400 text-black font-bold text-center rounded-lg brand-font text-sm uppercase tracking-wide transition transform hover:scale-105">
             Negotiate My Deal
         </a>
     </aside>
@@ -90,7 +90,6 @@
         </header>
 
         <div id="chat-container" class="flex-1 overflow-y-auto p-4 md:p-10 space-y-6 pb-32">
-            
             <div class="flex gap-4 max-w-3xl mx-auto">
                 <div class="w-8 h-8 rounded-full bg-yellow-500 flex-shrink-0 flex items-center justify-center font-bold text-black text-xs">ZH</div>
                 <div class="space-y-2">
@@ -127,6 +126,10 @@
 
     <div id="lead-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-[#1E1F20] w-full max-w-md p-8 rounded-2xl border border-gray-800 shadow-2xl relative">
+            
+            <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-500 hover:text-white transition">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
             
             <div class="text-center mb-6">
                 <div class="w-12 h-12 bg-yellow-500 rounded mx-auto flex items-center justify-center font-bold text-black text-xl mb-4">ZH</div>
@@ -170,8 +173,9 @@
         const fileInput = document.getElementById('file-upload');
         const leadModal = document.getElementById('lead-modal');
         const leadForm = document.getElementById('lead-form');
+        const closeModalBtn = document.getElementById('close-modal-btn'); // New X Button
 
-        // 1. LEAD GEN LOGIC (The Gate)
+        // 1. LEAD GEN LOGIC
         function checkGate() {
             const userData = localStorage.getItem('zahouse_user');
             if (!userData) {
@@ -183,6 +187,18 @@
 
         uploadBtn.addEventListener('click', () => {
             if (checkGate()) fileInput.click();
+        });
+
+        // Close Modal Logic
+        closeModalBtn.addEventListener('click', () => {
+            leadModal.classList.add('hidden');
+        });
+
+        // Close if clicking outside the modal box
+        leadModal.addEventListener('click', (e) => {
+            if (e.target === leadModal) {
+                leadModal.classList.add('hidden');
+            }
         });
 
         leadForm.addEventListener('submit', (e) => {
@@ -200,7 +216,7 @@
             fileInput.click();
         });
 
-        // 2. FILE UPLOAD HANDLING
+        // 2. FILE UPLOAD
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -212,7 +228,6 @@
             formData.append('contract', file);
 
             try {
-                // Determine API URL (Audit Route)
                 const res = await fetch('/audit', { method: 'POST', body: formData });
                 const data = await res.json();
                 removeTyping();
@@ -221,7 +236,7 @@
                 removeTyping();
                 addMessage("System", "⚠️ Upload failed. Check connection.");
             }
-            fileInput.value = ''; // Reset
+            fileInput.value = '';
         });
 
         // 3. CHAT LOGIC
@@ -229,15 +244,12 @@
             const text = userInput.value.trim();
             if (!text) return;
 
-            // Add User Message
             addMessage("User", text);
             userInput.value = '';
-            userInput.style.height = 'auto'; // Reset height
-
+            userInput.style.height = 'auto';
             showTyping();
 
             try {
-                // Determine API URL (Chat Route)
                 const res = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -252,7 +264,6 @@
             }
         }
 
-        // Event Listeners
         sendBtn.addEventListener('click', sendMessage);
         userInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -261,7 +272,6 @@
             }
         });
 
-        // Auto-expand textarea
         userInput.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = (this.scrollHeight) + 'px';
@@ -275,8 +285,6 @@
             const isAI = sender === "ZaHouse";
             const avatarColor = isAI ? "bg-yellow-500 text-black" : "bg-gray-700 text-white";
             const initial = isAI ? "ZH" : "YOU";
-
-            // Parse Markdown
             const htmlContent = marked.parse(text);
 
             div.innerHTML = `
