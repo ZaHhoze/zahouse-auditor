@@ -1,6 +1,7 @@
 {
   "name": "zahouse-auditor",
   "version": "1.0.0",
+  "description": "ZaHouse Strategy App",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
