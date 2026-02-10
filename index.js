@@ -10,27 +10,26 @@ const Anthropic = require('@anthropic-ai/sdk');
 const app = express();
 const port = process.env.PORT || 8080;
 
-// 🧠 THE BRAIN (Updated to your selection in Screenshot 9.26.38)
+// 🧠 MODEL: CONFIRMED WORKING (Sonnet 4.5)
 const MODEL_ID = "claude-sonnet-4-5-20250929";
 
 app.use(cors());
 app.use(express.json());
-// ⚡️ Cache static files for speed
+// ⚡️ Cache static UI files for speed
 app.use(express.static('public', { maxAge: '1d' }));
 
-// 🛡️ SAFETY: Extend timeout to 30s so the Frontend doesn't panic
+// 🛡️ TIMEOUT PROTECTOR (Prevents "System Error" on slow analysis)
 app.use((req, res, next) => {
-  res.setTimeout(30000, () => {
+  res.setTimeout(60000, () => { // 60 seconds
     console.log('⚠️ Request timed out.');
-    if (!res.headersSent) res.status(408).send('Request timed out');
+    if (!res.headersSent) res.status(408).send('Analysis timed out. Try a smaller file.');
   });
-  console.log(`[TRAFFIC] ${req.method} request to: ${req.path}`);
   next();
 });
 
 const upload = multer({ dest: 'uploads/' });
 
-// 🔥 ZAHOUSE STRATEGIST INSTRUCTIONS (Fully Restored) 🔥
+// 🔥 ZAHOUSE STRATEGIST INSTRUCTIONS 🔥
 const ZAHOUSE_SYSTEM_PROMPT = `
 ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a protector of creative equity, and a deal-maker. You are here to decode the complex music industry for artists and labels.
 
@@ -70,63 +69,53 @@ If a contract is uploaded (PDF), you MUST output this EXACT Markdown Table at th
 VERDICT: [Real Talk summary using metaphors]
 `;
 
-// ✅ THE MASTER HANDLER
+// ✅ MASTER HANDLER
 async function handleRequest(req, res) {
   if (!process.env.ANTHROPIC_API_KEY) {
-    return res.json({ reply: "⚠️ SYSTEM ALERT: API Key is missing in Railway." });
+    return res.json({ reply: "⚠️ SYSTEM ALERT: API Key is missing." });
   }
 
   try {
     let userPrompt = "";
 
-    // 1. FILE DETECTED? (Audit Mode)
+    // 1. FILE UPLOAD (Audit)
     if (req.file) {
-      console.log("📄 PDF Uploaded");
+      console.log("📄 Contract Uploaded");
       const dataBuffer = fs.readFileSync(req.file.path);
       const data = await pdf(dataBuffer);
       userPrompt = `Visual Scorecard Protocol:\n${data.text}`;
       fs.unlinkSync(req.file.path);
     } 
-    // 2. TEXT DETECTED? (Chat Mode)
+    // 2. CHAT TEXT
     else {
-      // Logic: If user hits /audit but sends no file, treat it as chat
       userPrompt = req.body.message || req.body.prompt || "Hello";
-      console.log(`💬 Text Received: "${userPrompt.substring(0, 20)}..."`);
     }
 
-    // 3. CALL CLAUDE
-    console.log(`🤖 Consulting Strategist (${MODEL_ID})...`);
+    // 3. SEND TO BRAIN
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
     const response = await anthropic.messages.create({
-      model: MODEL_ID, // claude-sonnet-4-5-20250929
-      max_tokens: 3000,
+      model: MODEL_ID,
+      max_tokens: 3500,
       system: ZAHOUSE_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }]
     });
 
     const replyText = response.content[0].text;
-    console.log("✅ Strategist Replied");
 
-    // 4. SEND RESPONSE (Shotgun Format)
+    // 4. REPLY (Universal Format)
     res.json({ 
       reply: replyText,
       analysis: replyText,
-      message: replyText,
-      response: replyText
+      message: replyText
     });
 
   } catch (error) {
     console.error("❌ ERROR:", error);
-    // Send error as a visible message so we know what happened
-    res.json({ 
-      reply: `⚠️ BRAIN ERROR: ${error.message}`,
-      analysis: `⚠️ BRAIN ERROR: ${error.message}`
-    });
+    res.json({ reply: `⚠️ BRAIN ERROR: ${error.message}` });
   }
 }
 
-// ✅ ROUTES (All Doors Open)
+// ✅ ROUTES
 app.post('/chat', upload.single('contract'), handleRequest);
 app.post('/api/chat', upload.single('contract'), handleRequest);
 app.post('/audit', upload.single('contract'), handleRequest);
@@ -139,5 +128,4 @@ app.get('*', (req, res) => {
 
 app.listen(port, () => {
   console.log(`✅ ZaHouse Strategist Online (Port ${port})`);
-  console.log(`🧠 Model: ${MODEL_ID}`);
 });
