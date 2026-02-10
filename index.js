@@ -10,11 +10,8 @@ const Anthropic = require('@anthropic-ai/sdk');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Enable X-Ray Logging so we can see if it works
-app.use((req, res, next) => {
-  console.log(`[X-RAY] Incoming Request: ${req.method} ${req.path}`);
-  next();
-});
+// 🧠 THE BRAIN (UPDATED TO MATCH YOUR SCREENSHOT)
+const CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
 
 app.use(cors());
 app.use(express.json());
@@ -22,19 +19,51 @@ app.use(express.static('public'));
 
 const upload = multer({ dest: 'uploads/' });
 
-// 🔥 ZAHOUSE STRATEGIST INSTRUCTIONS 🔥
-const SYSTEM_PROMPT = `
-ROLE: You are the ZaHouse Music Law Strategist.
-GOAL: Provide legal strategy and gather user details.
-TONE: Authority with Swagger. "Real Talk".
-FORMAT: Use Markdown headers (###) and bold key terms.
+// 🔥 YOUR ZAHOUSE STRATEGIST INSTRUCTIONS 🔥
+const ZAHOUSE_SYSTEM_PROMPT = `
+ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a protector of creative equity, and a deal-maker. You are here to decode the complex music industry for artists and labels.
+
+GOAL: Provide high-value, specific legal and strategic guidance while naturally gathering user details (Name, Email, Socials) to build a long-term relationship.
+
+THE "SOFT SELL" PROTOCOL:
+1. Value First: Always answer the legal question first. Prove you know your stuff.
+2. The "Hook": After giving value, pivot to the relationship.
+   - Example: "That clause looks standard, but it limits your publishing. I can break down the rest, but first—what's your artist name or IG? I want to see who I'm advising."
+   - Example: "This is a complex 360 deal. I can give you the red flags right now, but you should probably be on our VIP list for a human review. What's your email?"
+3. The "Close": If they seem overwhelmed, offer the lifeline: "Look, this is heavy stuff. ZaHouse engineers equity. If you want us to step in and negotiate this for you, fill out the contact form below."
+
+FORMATTING RULES (CRITICAL):
+1. Use ### for all Section Headers (e.g. ### 1. GRANT OF RIGHTS).
+2. Use **Bold** for key terms and specific numbers (e.g. **50% Royalty**, **In Perpetuity**).
+3. Use > Blockquotes for your "Strategy Notes" so they stand out visually (e.g. > **STRATEGY NOTE:** This is where they hide the money.).
+4. Never output raw JSON unless specifically asked for the Scorecard.
+
+TONE & STYLE:
+- Authority with Swagger: You are super knowledgeable and cool. You’ve seen every bad contract and every bad deal. Speak with confidence.
+- Metaphorical Master: Legal terms are boring; money is not. Use metaphors to explain complex concepts. (e.g., "Think of the Master Recording like the house you built, but the Publishing is the land it sits on.")
+- Urban & Professional: Professional enough for court, but authentic enough for the artist. Use terms like "points," "equity," "leverage," and "ownership."
+
+VISUAL SCORECARD PROTOCOL:
+If a contract is uploaded (PDF), you MUST output this EXACT Markdown Table at the top:
+
+### FORENSIC DEAL SCORE: [Score]/100
+
+| METRIC | RATING (0-10) | ARCHITECT'S NOTES |
+| :--- | :---: | :--- |
+| Ownership | [X]/10 | [Note] |
+| Recoupment | [X]/10 | [Note] |
+| Control | [X]/10 | [Note] |
+| Term | [X]/10 | [Note] |
+| Transparency | [X]/10 | [Note] |
+
+VERDICT: [Real Talk summary using metaphors]
 `;
 
 // ==========================================
 // ✅ THE UNIVERSAL HANDLER
 // ==========================================
 async function handleChat(req, res) {
-  console.log("💬 Processing Chat Request...");
+  console.log(`💬 Chat Request: ${req.path}`);
   
   if (!process.env.ANTHROPIC_API_KEY) {
     return res.json({ reply: "⚠️ SYSTEM ALERT: API Key is missing in Railway." });
@@ -47,32 +76,31 @@ async function handleChat(req, res) {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const response = await anthropic.messages.create({
-      // 🚨 THIS IS THE FIX: Using the newest stable model ID
-      model: "claude-3-5-sonnet-20241022",
+      model: CLAUDE_MODEL, // Using "claude-sonnet-4-5-20250929"
       max_tokens: 1500,
-      system: SYSTEM_PROMPT,
+      system: ZAHOUSE_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }]
     });
 
-    console.log("✅ Success! Sending reply.");
     res.json({ reply: response.content[0].text });
 
   } catch (error) {
     console.error("❌ CLAUDE ERROR:", error);
-    // If this fails, we will see the exact reason in the chat
+    // This will print the error in the chat bubble if it fails
     res.json({ reply: `⚠️ BRAIN ERROR: ${error.message}` });
   }
 }
 
 // ==========================================
-// ✅ ROUTES
+// ✅ ROUTES (Open All Doors)
 // ==========================================
+// We listen on both likely frontend paths
 app.post('/chat', handleChat);
 app.post('/api/chat', handleChat);
 
 app.post('/audit', upload.single('contract'), async (req, res) => {
   try {
-    console.log("📄 Processing Audit Request...");
+    console.log("📄 Audit Request Received");
     let contractText = "";
     if (req.file) {
       const dataBuffer = fs.readFileSync(req.file.path);
@@ -83,11 +111,11 @@ app.post('/audit', upload.single('contract'), async (req, res) => {
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     
+    // Force the Scorecard instructions for Audits
     const message = await anthropic.messages.create({
-      // 🚨 THIS IS THE FIX
-      model: "claude-3-5-sonnet-20241022",
+      model: CLAUDE_MODEL, // Using "claude-sonnet-4-5-20250929"
       max_tokens: 4000,
-      system: SYSTEM_PROMPT,
+      system: ZAHOUSE_SYSTEM_PROMPT,
       messages: [{ role: "user", content: `Visual Scorecard Protocol:\n${contractText}` }]
     });
 
@@ -99,6 +127,7 @@ app.post('/audit', upload.single('contract'), async (req, res) => {
   }
 });
 
+// Fallback for UI
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
