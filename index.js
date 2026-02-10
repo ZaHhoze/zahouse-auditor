@@ -10,15 +10,21 @@ const Anthropic = require('@anthropic-ai/sdk');
 const app = express();
 const port = process.env.PORT || 8080;
 
-// 🧠 LOCKED MODEL (From your Screenshot)
+// 🧠 LOCKED MODEL (Confirmed Working in Logs)
 const MODEL_ID = "claude-sonnet-4-20250514";
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+// ⚡️ SPEED FIX: Cache static files to load UI faster
+app.use(express.static('public', { maxAge: '1d' }));
 
-// 🔍 TRAFFIC LOGGER (Helps us see what's happening)
+// 🔍 TRAFFIC LOGGER
 app.use((req, res, next) => {
+  // ⏳ EXTEND TIMEOUT: Tell the browser to wait up to 30 seconds
+  res.setTimeout(30000, () => {
+    console.log('⚠️ Request has timed out.');
+    res.status(408).send('Request has timed out');
+  });
   console.log(`[TRAFFIC] ${req.method} request to: ${req.path}`);
   next();
 });
@@ -27,90 +33,90 @@ const upload = multer({ dest: 'uploads/' });
 
 // 🔥 ZAHOUSE STRATEGIST INSTRUCTIONS 🔥
 const ZAHOUSE_SYSTEM_PROMPT = `
-ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a protector of creative equity, and a deal-maker.
-GOAL: Provide high-value, specific legal and strategic guidance while naturally gathering user details.
-THE SOFT SELL: Answer the legal question first. Then pivot: "That clause looks standard, but I want to see who I'm advising. What's your artist name or IG?"
-TONE: Authority with Swagger. "Real Talk". Use metaphors.
-VISUALS: Use ### Headers and **Bold** for key money terms.
+ROLE: You are the ZaHouse Music Law Strategist.
+GOAL: Provide high-value, specific legal and strategic guidance.
+THE SOFT SELL: Answer the legal question first. Then pivot to gathering details.
+TONE: Authority with Swagger. "Real Talk".
 `;
 
-// ✅ THE "SMART" HANDLER
-// This function handles BOTH Chat and Audits intelligently.
+// ✅ THE "SHOTGUN" HANDLER
+// Sends the response in every format so the Frontend can't miss it.
 async function handleRequest(req, res) {
-  // 1. Check API Key
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("❌ API Key Missing");
-    return res.json({ reply: "⚠️ SYSTEM ALERT: API Key is missing in Railway Variables." });
+    return res.json({ reply: "⚠️ SYSTEM ALERT: API Key is missing." });
   }
 
   try {
     let userPrompt = "";
-    let isAudit = false;
 
-    // 2. DETECT MODE: Is there a file?
+    // 1. FAST PATH: If they just say "Hello", reply instantly (No API Call)
+    // This confirms if the connection is working without waiting for Claude.
+    const rawBody = req.body.message || req.body.prompt || "";
+    if (!req.file && rawBody.toLowerCase().trim() === "hello") {
+      console.log("⚡️ Fast Hello Triggered");
+      return res.json({
+        reply: "Yo. I'm locked in. Upload a contract or ask me about splits.",
+        analysis: "Yo. I'm locked in. Upload a contract or ask me about splits.",
+        message: "Yo. I'm locked in. Upload a contract or ask me about splits.",
+        response: "Yo. I'm locked in. Upload a contract or ask me about splits."
+      });
+    }
+
+    // 2. NORMAL PATH: Process File or Text
     if (req.file) {
-      console.log("📄 PDF Detected (Audit Mode)");
+      console.log("📄 PDF Detected");
       const dataBuffer = fs.readFileSync(req.file.path);
       const data = await pdf(dataBuffer);
       userPrompt = `Visual Scorecard Protocol:\n${data.text}`;
-      isAudit = true;
-      // Clean up file
       fs.unlinkSync(req.file.path);
-    } 
-    // 3. NO FILE? Then it's just Chat (even if they hit /audit)
-    else {
-      userPrompt = req.body.message || req.body.prompt;
-      
-      if (!userPrompt) {
-        // If the user hit /audit with no file AND no text, assume they want a greeting
-        userPrompt = "Hello"; 
-      }
-      console.log(`💬 Text Detected: "${userPrompt.substring(0, 20)}..."`);
+    } else {
+      userPrompt = rawBody || "Hello";
+      console.log(`💬 Text Detected: "${userPrompt.substring(0, 15)}..."`);
     }
 
-    // 4. CALL CLAUDE
+    // 3. CALL CLAUDE
+    console.log(`🤖 Sending to ${MODEL_ID}...`);
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     
-    console.log(`🤖 Sending to Model: ${MODEL_ID}`);
     const response = await anthropic.messages.create({
-      model: MODEL_ID, // claude-sonnet-4-20250514
+      model: MODEL_ID,
       max_tokens: 2000,
       system: ZAHOUSE_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }]
     });
 
     const replyText = response.content[0].text;
-    console.log("✅ Reply Received");
+    console.log("✅ Reply Received from Brain");
 
-    // 5. SEND RESPONSE (Dual Format to satisfy any frontend)
+    // 4. SEND "SHOTGUN" RESPONSE (Covers all bases)
+    // We send the same answer in 4 different keys to satisfy any frontend code.
     res.json({ 
-      reply: replyText, 
-      analysis: replyText 
+      reply: replyText,      // Standard
+      analysis: replyText,   // For Audits
+      message: replyText,    // Common
+      response: replyText    // Google Standard
     });
 
   } catch (error) {
     console.error("❌ CRASH:", error);
-    res.json({ 
-      reply: `⚠️ BRAIN ERROR: ${error.message}`,
-      analysis: `⚠️ BRAIN ERROR: ${error.message}`
+    res.status(200).json({ // Return 200 OK even on error so frontend shows the message
+      reply: `⚠️ ERROR: ${error.message}`,
+      analysis: `⚠️ ERROR: ${error.message}`
     });
   }
 }
 
-// ✅ ROUTES (Open All Doors)
-// We route EVERYTHING to the smart handler.
-// We add 'upload.single' to all routes so it catches files if they exist, but ignores them if they don't.
+// ✅ ROUTES
 app.post('/chat', upload.single('contract'), handleRequest);
 app.post('/api/chat', upload.single('contract'), handleRequest);
 app.post('/audit', upload.single('contract'), handleRequest);
 app.post('/api/audit', upload.single('contract'), handleRequest);
 
-// Fallback for UI
+// Fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(port, () => {
   console.log(`✅ ZaHouse Online (Port ${port})`);
-  console.log(`🧠 Model Locked: ${MODEL_ID}`);
 });
