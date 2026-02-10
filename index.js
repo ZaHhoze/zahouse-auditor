@@ -16,7 +16,7 @@ app.use(express.static('public'));
 
 const upload = multer({ dest: 'uploads/' });
 
-// 🔥 ZAHOUSE STRATEGIST INSTRUCTIONS 🔥
+// 🔥 ZAHOUSE INSTRUCTIONS (Restored) 🔥
 const ZAHOUSE_SYSTEM_PROMPT = `
 ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a protector of creative equity, and a deal-maker.
 GOAL: Provide legal strategy and gather user details (Name, Email, IG).
@@ -25,27 +25,49 @@ TONE: Authority with Swagger. "Real Talk". Use metaphors.
 FORMAT: Use Markdown headers (###) and bold key terms.
 `;
 
-// ✅ CHAT ROUTE (TROJAN HORSE MODE)
-// We force the server to say "Success" even if it fails, so you can see the error.
+// ✅ DIAGNOSIS SCREEN (The Welcome Page)
+// This will tell us INSTANTLY if the Key is missing or the code is broken.
+app.get('/', (req, res) => {
+  let status = "🔴 OFFLINE";
+  let details = "";
+  
+  // 1. Check Key
+  if (process.env.ANTHROPIC_API_KEY) {
+    status = "🟡 KEY FOUND";
+    // 2. Check Key Format
+    if (process.env.ANTHROPIC_API_KEY.startsWith("sk-ant")) {
+      status = "🟢 ONLINE & READY";
+      details = "System is healthy. The Strategist is waiting.";
+    } else {
+      status = "🟠 KEY INVALID";
+      details = "The API Key exists but looks wrong (must start with 'sk-ant').";
+    }
+  } else {
+    status = "🔴 KEY MISSING";
+    details = "FATAL ERROR: No API Key found in Railway Variables.";
+  }
+
+  res.send(`
+    <div style="font-family: sans-serif; background: #111; color: #fff; padding: 50px; text-align: center;">
+      <h1>ZaHouse Auditor Status</h1>
+      <h2 style="font-size: 40px;">${status}</h2>
+      <p>${details}</p>
+      <hr style="border-color: #333; margin: 30px 0;">
+      <p style="color: #666;">If this says 🟢 ONLINE, try typing 'Hello' in the chat again.</p>
+    </div>
+  `);
+});
+
+// ✅ CHAT ROUTE
 app.post('/chat', async (req, res) => {
   try {
-    console.log("💬 Chat request received.");
-
-    // 1. CHECK API KEY
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error("❌ API Key is missing");
-      return res.json({ 
-        reply: "⚠️ DIAGNOSTIC: I cannot find your API Key. Please go to Railway -> Variables and add ANTHROPIC_API_KEY." 
-      });
-    }
-
-    // 2. CHECK MESSAGE
     const userMessage = req.body.message || req.body.prompt;
-    if (!userMessage) {
-      return res.json({ reply: "⚠️ DIAGNOSTIC: You sent an empty message." });
+    if (!userMessage) return res.json({ reply: "⚠️ Error: Empty message." });
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.json({ reply: "⚠️ SYSTEM ALERT: API Key is missing from Railway." });
     }
 
-    // 3. ATTEMPT CLAUDE CONNECTION
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const response = await anthropic.messages.create({
@@ -55,23 +77,17 @@ app.post('/chat', async (req, res) => {
       messages: [{ role: "user", content: userMessage }]
     });
 
-    // SUCCESS!
     res.json({ reply: response.content[0].text });
 
   } catch (error) {
-    console.error("❌ CRASH:", error);
-    // TRICK: Send the error as a chat message
-    res.json({ 
-      reply: `⚠️ CRITICAL ERROR: ${error.message}\n\n(This means the API Key might be invalid or your quota is empty.)` 
-    });
+    console.error("Chat Error:", error);
+    res.json({ reply: `⚠️ BRAIN ERROR: ${error.message}` });
   }
 });
 
 // ✅ AUDIT ROUTE
 app.post('/audit', upload.single('contract'), async (req, res) => {
-  if (!process.env.ANTHROPIC_API_KEY) {
-     return res.json({ analysis: "⚠️ API Key is missing. Check Railway." });
-  }
+  if (!process.env.ANTHROPIC_API_KEY) return res.json({ analysis: "⚠️ API Key missing." });
 
   try {
     let contractText = "";
@@ -98,10 +114,6 @@ app.post('/audit', upload.single('contract'), async (req, res) => {
   } catch (error) {
     res.json({ analysis: `⚠️ ERROR: ${error.message}` });
   }
-});
-
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(port, () => {
