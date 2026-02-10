@@ -1,7 +1,7 @@
 {
   "name": "zahouse-auditor",
   "version": "1.0.0",
-  "description": "AI Music Law Strategist - Claude Edition",
+  "description": "Google App Shell with Claude Brain",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
