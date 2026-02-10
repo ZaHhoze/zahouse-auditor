@@ -19,13 +19,11 @@
         body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); color: var(--text-gray); overflow: hidden; }
         h1, h2, h3, .brand-font { font-family: 'Space Grotesk', sans-serif; }
         
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-dark); }
         ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--zahouse-gold); }
 
-        /* Mobile Fixes */
         .mobile-height { height: 100dvh; } 
         
         /* Typing Animation */
@@ -41,6 +39,14 @@
         @keyframes typing {
             0%, 80%, 100% { transform: scale(0); }
             40% { transform: scale(1); }
+        }
+
+        /* Disabled Button Style */
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #444;
+            color: #888;
         }
     </style>
 </head>
@@ -80,7 +86,6 @@
     </aside>
 
     <main class="flex-1 flex flex-col h-full relative">
-        
         <header class="md:hidden flex items-center justify-between p-4 bg-[#1E1F20] border-b border-gray-800">
             <div class="flex items-center gap-2">
                 <div class="w-6 h-6 bg-yellow-500 rounded text-center text-xs font-bold text-black leading-6">ZH</div>
@@ -89,7 +94,7 @@
             <button onclick="location.reload()" class="text-gray-400">↺</button>
         </header>
 
-        <div id="chat-container" class="flex-1 overflow-y-auto p-4 md:p-10 space-y-6 pb-32">
+        <div id="chat-container" class="flex-1 overflow-y-auto p-4 md:p-10 space-y-6 pb-40">
             <div class="flex gap-4 max-w-3xl mx-auto">
                 <div class="w-8 h-8 rounded-full bg-yellow-500 flex-shrink-0 flex items-center justify-center font-bold text-black text-xs">ZH</div>
                 <div class="space-y-2">
@@ -119,14 +124,22 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                     </button>
                 </div>
-                <p class="text-center text-[10px] text-gray-600 mt-2">Strategic guidance only. Not binding legal advice. © ZaHouse Music Group.</p>
+                
+                <div class="text-center mt-3 space-y-1">
+                    <p class="text-[10px] text-gray-500">
+                        Strategic guidance only. Not binding legal advice.
+                    </p>
+                    <p class="text-[10px] text-gray-600">
+                        © 2026 ZaHouse Music Group. All Rights Reserved. 
+                        <span class="mx-1">|</span> <a href="/terms.html" target="_blank" class="hover:text-gray-400 underline">Terms</a>
+                    </p>
+                </div>
             </div>
         </div>
     </main>
 
     <div id="lead-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-[#1E1F20] w-full max-w-md p-8 rounded-2xl border border-gray-800 shadow-2xl relative">
-            
             <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-500 hover:text-white transition">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
@@ -134,7 +147,7 @@
             <div class="text-center mb-6">
                 <div class="w-12 h-12 bg-yellow-500 rounded mx-auto flex items-center justify-center font-bold text-black text-xl mb-4">ZH</div>
                 <h2 class="text-2xl font-bold text-white mb-2">Unlock The Vault</h2>
-                <p class="text-gray-400 text-sm">To upload contracts for forensic analysis, we need to know who we're protecting. This data creates your Client Profile.</p>
+                <p class="text-gray-400 text-sm">To upload contracts for forensic analysis, create your Client Profile.</p>
             </div>
 
             <form id="lead-form" class="space-y-4">
@@ -157,7 +170,14 @@
                     </div>
                 </div>
 
-                <button type="submit" class="w-full bg-[#FFD700] hover:bg-yellow-400 text-black font-bold py-3 rounded-lg mt-4 transition uppercase tracking-wide">
+                <div class="flex items-start gap-3 mt-4 p-3 bg-[#131314] rounded border border-gray-800">
+                    <input type="checkbox" id="terms-check" class="mt-1 accent-yellow-500 w-4 h-4 cursor-pointer">
+                    <label for="terms-check" class="text-xs text-gray-400 cursor-pointer">
+                        I agree to the <a href="/terms.html" target="_blank" class="text-yellow-500 hover:underline">Terms & Conditions</a>. I understand this tool provides strategic info, not binding legal advice.
+                    </label>
+                </div>
+
+                <button type="submit" id="init-btn" disabled class="w-full bg-[#FFD700] text-black font-bold py-3 rounded-lg mt-2 transition uppercase tracking-wide">
                     Initialize Session
                 </button>
             </form>
@@ -173,9 +193,18 @@
         const fileInput = document.getElementById('file-upload');
         const leadModal = document.getElementById('lead-modal');
         const leadForm = document.getElementById('lead-form');
-        const closeModalBtn = document.getElementById('close-modal-btn'); // New X Button
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        
+        // CHECKBOX LOGIC
+        const termsCheck = document.getElementById('terms-check');
+        const initBtn = document.getElementById('init-btn');
 
-        // 1. LEAD GEN LOGIC
+        // Toggle button based on checkbox
+        termsCheck.addEventListener('change', () => {
+            initBtn.disabled = !termsCheck.checked;
+        });
+
+        // LEAD GEN
         function checkGate() {
             const userData = localStorage.getItem('zahouse_user');
             if (!userData) {
@@ -189,16 +218,12 @@
             if (checkGate()) fileInput.click();
         });
 
-        // Close Modal Logic
         closeModalBtn.addEventListener('click', () => {
             leadModal.classList.add('hidden');
         });
 
-        // Close if clicking outside the modal box
         leadModal.addEventListener('click', (e) => {
-            if (e.target === leadModal) {
-                leadModal.classList.add('hidden');
-            }
+            if (e.target === leadModal) leadModal.classList.add('hidden');
         });
 
         leadForm.addEventListener('submit', (e) => {
@@ -211,12 +236,10 @@
             };
             localStorage.setItem('zahouse_user', JSON.stringify(user));
             leadModal.classList.add('hidden');
-            
-            // Auto-trigger upload if that's what they wanted
             fileInput.click();
         });
 
-        // 2. FILE UPLOAD
+        // UPLOAD & CHAT (Standard Logic)
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -239,7 +262,6 @@
             fileInput.value = '';
         });
 
-        // 3. CHAT LOGIC
         async function sendMessage() {
             const text = userInput.value.trim();
             if (!text) return;
@@ -277,7 +299,6 @@
             this.style.height = (this.scrollHeight) + 'px';
         });
 
-        // 4. UI HELPERS
         function addMessage(sender, text) {
             const div = document.createElement('div');
             div.className = "flex gap-4 max-w-3xl mx-auto animate-fade-in";
