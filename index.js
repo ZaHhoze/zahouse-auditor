@@ -10,18 +10,13 @@ const Anthropic = require('@anthropic-ai/sdk');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Initialize Claude
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY, 
-});
-
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public')); // ✅ Keeps the App Shell (UI) alive
 
 const upload = multer({ dest: 'uploads/' });
 
-// 🔥 THE ZAHOUSE STRATEGIST BRAIN (Your Instructions) 🔥
+// 🔥 THE ZAHOUSE STRATEGIST BRAIN 🔥
 const ZAHOUSE_SYSTEM_PROMPT = `
 ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a protector of creative equity, and a deal-maker. You are here to decode the complex music industry for artists and labels.
 
@@ -69,17 +64,27 @@ If a contract is uploaded (PDF), you MUST output this EXACT Markdown Table at th
 VERDICT: [Real Talk summary using metaphors]
 `;
 
-// ✅ CHAT ROUTE (Handles "Hello" and questions)
+// ✅ CHAT ROUTE (Conversational)
 app.post('/chat', async (req, res) => {
+  // 1. Safety Check: Is the API Key there?
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error("❌ ERROR: API Key is missing.");
+    return res.json({ 
+      reply: "⚠️ SYSTEM ALERT: My API Key is missing. Go to Railway -> Variables and add ANTHROPIC_API_KEY." 
+    });
+  }
+
   try {
     const userMessage = req.body.message || req.body.prompt;
-    
     if (!userMessage) return res.status(400).json({ error: "No message sent" });
+
+    // Initialize Claude inside the request to ensure Key is loaded
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const response = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 1500,
-      system: ZAHOUSE_SYSTEM_PROMPT, // Inject your instructions
+      system: ZAHOUSE_SYSTEM_PROMPT, // 👈 YOUR INSTRUCTIONS ARE HERE
       messages: [
         { role: "user", content: userMessage }
       ]
@@ -89,12 +94,16 @@ app.post('/chat', async (req, res) => {
 
   } catch (error) {
     console.error("Chat Error:", error);
-    res.status(500).json({ error: "Strategist is offline", details: error.message });
+    res.json({ reply: `⚠️ CLAUDE ERROR: ${error.message}` });
   }
 });
 
-// ✅ AUDIT ROUTE (Handles PDF Contracts)
+// ✅ AUDIT ROUTE (PDF Analysis)
 app.post('/audit', upload.single('contract'), async (req, res) => {
+  if (!process.env.ANTHROPIC_API_KEY) {
+     return res.json({ analysis: "⚠️ SYSTEM ALERT: API Key is missing. Check Railway Variables." });
+  }
+
   try {
     let contractText = "";
     if (req.file) {
@@ -106,7 +115,9 @@ app.post('/audit', upload.single('contract'), async (req, res) => {
       return res.status(400).json({ error: "No contract file uploaded." });
     }
 
-    // Force the Scorecard for audits
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    // Specific prompt for Audits to trigger the Scorecard
     const userPrompt = `I have uploaded a contract. Analyze it clause by clause using the Visual Scorecard Protocol.
     
     Contract Text:
@@ -115,7 +126,7 @@ app.post('/audit', upload.single('contract'), async (req, res) => {
     const message = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 4000,
-      system: ZAHOUSE_SYSTEM_PROMPT, // Inject your instructions
+      system: ZAHOUSE_SYSTEM_PROMPT, // 👈 YOUR INSTRUCTIONS ARE HERE
       messages: [{ role: "user", content: userPrompt }]
     });
 
