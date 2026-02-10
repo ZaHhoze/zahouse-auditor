@@ -17,11 +17,11 @@ const anthropic = new Anthropic({
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public')); // Keeps your UI alive
+app.use(express.static('public')); // ✅ Keeps the App Shell (UI) alive
 
 const upload = multer({ dest: 'uploads/' });
 
-// 🔥 THE ZAHOUSE STRATEGIST BRAIN 🔥
+// 🔥 THE ZAHOUSE STRATEGIST BRAIN (Your Instructions) 🔥
 const ZAHOUSE_SYSTEM_PROMPT = `
 ROLE: You are the ZaHouse Music Law Strategist. You are an industry insider, a protector of creative equity, and a deal-maker. You are here to decode the complex music industry for artists and labels.
 
@@ -45,6 +45,9 @@ TONE & STYLE:
 - Metaphorical Master: Legal terms are boring; money is not. Use metaphors to explain complex concepts. (e.g., "Think of the Master Recording like the house you built, but the Publishing is the land it sits on.")
 - Urban & Professional: Professional enough for court, but authentic enough for the artist. Use terms like "points," "equity," "leverage," and "ownership."
 
+KNOWLEDGE SOURCE:
+- General Mastery: Use your general legal knowledge to give top-tier advice on copyright, splits, AI, and royalties.
+
 BEHAVIOR:
 - The "Real Talk": If a user describes a bad deal, tell them straight up. Don't sugarcoat it.
 - The "Open Door": You provide high-level strategic guidance (Level 1). If the situation is complex or requires a custom contract, always remind them: "ZaHouse is here to engineer your equity."
@@ -66,7 +69,7 @@ If a contract is uploaded (PDF), you MUST output this EXACT Markdown Table at th
 VERDICT: [Real Talk summary using metaphors]
 `;
 
-// ✅ CHAT ROUTE (Conversational)
+// ✅ CHAT ROUTE (Handles "Hello" and questions)
 app.post('/chat', async (req, res) => {
   try {
     const userMessage = req.body.message || req.body.prompt;
@@ -76,7 +79,7 @@ app.post('/chat', async (req, res) => {
     const response = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 1500,
-      system: ZAHOUSE_SYSTEM_PROMPT, // Inject the Persona here
+      system: ZAHOUSE_SYSTEM_PROMPT, // Inject your instructions
       messages: [
         { role: "user", content: userMessage }
       ]
@@ -90,7 +93,7 @@ app.post('/chat', async (req, res) => {
   }
 });
 
-// ✅ AUDIT ROUTE (PDF Analysis)
+// ✅ AUDIT ROUTE (Handles PDF Contracts)
 app.post('/audit', upload.single('contract'), async (req, res) => {
   try {
     let contractText = "";
@@ -103,7 +106,7 @@ app.post('/audit', upload.single('contract'), async (req, res) => {
       return res.status(400).json({ error: "No contract file uploaded." });
     }
 
-    // Specific prompt for Audits to trigger the Scorecard
+    // Force the Scorecard for audits
     const userPrompt = `I have uploaded a contract. Analyze it clause by clause using the Visual Scorecard Protocol.
     
     Contract Text:
@@ -112,7 +115,7 @@ app.post('/audit', upload.single('contract'), async (req, res) => {
     const message = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 4000,
-      system: ZAHOUSE_SYSTEM_PROMPT, // Inject the Persona here
+      system: ZAHOUSE_SYSTEM_PROMPT, // Inject your instructions
       messages: [{ role: "user", content: userPrompt }]
     });
 
