@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
     <title>ZaHouse | Music Law Strategist</title>
-    <meta name="description" content="Don't sign until you verify. AI-powered contract forensics and deal strategy for artists.">
+    <meta name="description" content="Don't sign until you verify. AI-powered contract forensics and deal strategy.">
     <meta property="og:title" content="ZaHouse | Music Law Strategist">
     <meta property="og:description" content="Don't sign until you verify. AI-powered contract forensics and deal strategy.">
     <meta property="og:type" content="website">
@@ -93,12 +93,19 @@
     </aside>
 
     <main class="flex-1 flex flex-col h-full relative">
+        
         <header class="md:hidden flex items-center justify-between p-4 bg-[#1E1F20] border-b border-gray-800">
             <div class="flex items-center gap-2">
                 <div class="w-6 h-6 bg-yellow-500 rounded text-center text-xs font-bold text-black leading-6">ZH</div>
                 <span class="font-bold">ZaHouse</span>
             </div>
-            <button onclick="location.reload()" class="text-gray-400">↺</button>
+            
+            <div class="flex items-center gap-4">
+                <button onclick="location.reload()" class="text-gray-400 hover:text-white">↺</button>
+                <button id="mobile-menu-open" class="text-white">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+            </div>
         </header>
 
         <div id="chat-container" class="flex-1 overflow-y-auto p-4 md:p-10 space-y-6 pb-40">
@@ -145,18 +152,56 @@
         </div>
     </main>
 
+    <div id="mobile-menu" class="fixed inset-0 z-50 bg-[#131314] hidden flex flex-col p-6 animate-fade-in">
+        <div class="flex items-center justify-between mb-10">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-yellow-500 rounded flex items-center justify-center font-bold text-black brand-font">ZH</div>
+                <h1 class="font-bold text-white text-xl">ZaHouse</h1>
+            </div>
+            <button id="mobile-menu-close" class="text-gray-400 hover:text-white p-2">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+
+        <div class="flex-1 flex flex-col justify-between">
+            <div>
+                <button onclick="location.reload()" class="w-full flex items-center gap-3 bg-[#1E1F20] border border-gray-800 p-4 rounded-xl mb-8 text-white font-medium">
+                    <span class="text-xl text-yellow-500">+</span> Start New Analysis
+                </button>
+
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">The Protocol</p>
+                <div class="space-y-6">
+                    <div class="flex items-center gap-4 text-gray-300">
+                        <span class="text-xl">⚖️</span> Decode Contracts
+                    </div>
+                    <div class="flex items-center gap-4 text-gray-300">
+                        <span class="text-xl">💿</span> Masters vs. Publishing
+                    </div>
+                    <div class="flex items-center gap-4 text-gray-300">
+                        <span class="text-xl">🛡️</span> Equity Protection
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-8">
+                <a href="mailto:admin@za.house?subject=Negotiate My Deal&body=I need ZaHouse to step in." class="block w-full py-4 bg-[#FFD700] text-black font-bold text-center rounded-xl brand-font text-lg uppercase tracking-wide">
+                    Negotiate My Deal
+                </a>
+                <p class="text-center text-gray-600 text-xs mt-4">We engineer equity. Don't sign alone.</p>
+            </div>
+        </div>
+    </div>
+
     <div id="lead-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-[#1E1F20] w-full max-w-md p-8 rounded-2xl border border-gray-800 shadow-2xl relative">
             <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-500 hover:text-white transition">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
-            
             <div class="text-center mb-6">
                 <div class="w-12 h-12 bg-yellow-500 rounded mx-auto flex items-center justify-center font-bold text-black text-xl mb-4">ZH</div>
                 <h2 class="text-2xl font-bold text-white mb-2">Unlock The Vault</h2>
                 <p class="text-gray-400 text-sm">To upload contracts for forensic analysis, create your Client Profile.</p>
             </div>
-
             <form id="lead-form" class="space-y-4">
                 <div>
                     <label class="text-xs font-bold text-gray-500 uppercase">Artist / Manager Name *</label>
@@ -176,14 +221,12 @@
                         <input type="text" id="lead-pro" class="w-full bg-[#131314] border border-gray-700 rounded p-3 text-white focus:border-yellow-500 focus:outline-none mt-1">
                     </div>
                 </div>
-
                 <div class="flex items-start gap-3 mt-4 p-3 bg-[#131314] rounded border border-gray-800">
                     <input type="checkbox" id="terms-check" class="mt-1 accent-yellow-500 w-4 h-4 cursor-pointer">
                     <label for="terms-check" class="text-xs text-gray-400 cursor-pointer">
                         I agree to the <a href="/terms.html" target="_blank" class="text-yellow-500 hover:underline">Terms & Conditions</a>. I understand this tool provides strategic info, not binding legal advice.
                     </label>
                 </div>
-
                 <button type="submit" id="init-btn" disabled class="w-full bg-[#FFD700] text-black font-bold py-3 rounded-lg mt-2 transition uppercase tracking-wide">
                     Initialize Session
                 </button>
@@ -201,10 +244,23 @@
         const leadModal = document.getElementById('lead-modal');
         const leadForm = document.getElementById('lead-form');
         const closeModalBtn = document.getElementById('close-modal-btn');
-        
         const termsCheck = document.getElementById('terms-check');
         const initBtn = document.getElementById('init-btn');
 
+        // MOBILE MENU LOGIC
+        const mobileMenu = document.getElementById('mobile-menu');
+        const mobileMenuOpen = document.getElementById('mobile-menu-open');
+        const mobileMenuClose = document.getElementById('mobile-menu-close');
+
+        mobileMenuOpen.addEventListener('click', () => {
+            mobileMenu.classList.remove('hidden');
+        });
+
+        mobileMenuClose.addEventListener('click', () => {
+            mobileMenu.classList.add('hidden');
+        });
+
+        // GATE LOGIC
         termsCheck.addEventListener('change', () => {
             initBtn.disabled = !termsCheck.checked;
         });
